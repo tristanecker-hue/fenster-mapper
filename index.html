@@ -68,6 +68,9 @@
   .proj .n { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .proj .n small { display:block; color:var(--mut); font-size:11px; }
   .proj button { padding:5px 8px; font-size:12px; }
+  .posgrid { display:grid; grid-template-columns:repeat(3,36px); gap:4px; }
+  .posgrid button { padding:4px 0; font-size:15px; line-height:1.2; }
+  .posgrid button.on { background:var(--acc); color:#10200a; border-color:var(--acc); }
   #presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
   #presets button { text-align:left; font-size:13px; }
   .hint { color:var(--mut); font-size:12px; margin-top:8px; }
@@ -192,6 +195,7 @@
           <option value="pulse">Pulsieren</option>
         </select>
       </div>
+      <div class="sl"><span>Position</span><div id="pos" class="posgrid"></div></div>
     </div>
   </details>
 
@@ -260,9 +264,10 @@
   const SURF_DEFAULTS = { type: 'none', url: null, fileName: '', mtype: 'none', w: 1920, h: 1080,
     brightness: 100, opacity: 100, visible: true, loop: true, muted: true,
     fx: 'none', fxColor: '#b8e986', fxSpeed: 100,
-    txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none' };
+    txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none',
+    thAlign: 'center', tvAlign: 'center' };
   const KEYS = ['id','name','fileName','mtype','w','h','pts','brightness','opacity','visible','loop','muted',
-    'fx','fxColor','fxSpeed','txt','font','tsize','tcolor','tglow','tbold','tanim'];
+    'fx','fxColor','fxSpeed','txt','font','tsize','tcolor','tglow','tbold','tanim','thAlign','tvAlign'];
   const MEDIA_KEYS = ['url','type','fileName','mtype','w','h'];
 
   let state = { surfaces: [], masks: [], sel: 0, selMask: null, selPt: null, grid: false, maskSoft: 0, projectName: '' };
@@ -652,6 +657,10 @@
       const fs = s.h * s.tsize / 100;
       o.txt.textContent = s.txt;
       o.txt.style.display = s.txt ? 'flex' : 'none';
+      const AL = { left: 'flex-start', center: 'center', right: 'flex-end', top: 'flex-start', bottom: 'flex-end' };
+      o.txt.style.justifyContent = AL[s.thAlign] || 'center';
+      o.txt.style.alignItems = AL[s.tvAlign] || 'center';
+      o.txt.style.textAlign = s.thAlign || 'center';
       o.txt.style.fontFamily = `'${s.font}', Impact, sans-serif`;
       o.txt.style.fontSize = fs + 'px';
       o.txt.style.color = s.tcolor;
@@ -773,6 +782,7 @@
     if (document.activeElement !== $('txt')) $('txt').value = s.txt;
     $('font').value = s.font; $('tsize').value = s.tsize; $('tcolor').value = s.tcolor;
     $('tglow').checked = s.tglow; $('tbold').checked = s.tbold; $('tanim').value = s.tanim;
+    $('pos').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.h === s.thAlign && b.dataset.v === s.tvAlign));
     $('soft').value = state.maskSoft;
     $('sellabel').innerHTML = state.selMask !== null
       ? `Ausgewählt: <b>Maske ${state.selMask + 1}</b>`
@@ -834,6 +844,15 @@
   $('tglow').onchange = e => { pushUndo(uniq()); cur().tglow = e.target.checked; render(); save(); };
   $('tbold').onchange = e => { pushUndo(uniq()); cur().tbold = e.target.checked; render(); save(); };
   $('tanim').onchange = e => { pushUndo(uniq()); cur().tanim = e.target.value; render(); save(); };
+  // Textposition (links/Mitte/rechts, oben/Mitte/unten)
+  [['top','left','↖'],['top','center','↑'],['top','right','↗'],
+   ['center','left','←'],['center','center','•'],['center','right','→'],
+   ['bottom','left','↙'],['bottom','center','↓'],['bottom','right','↘']].forEach(([v, h, ch]) => {
+    const b = document.createElement('button'); b.textContent = ch; b.dataset.h = h; b.dataset.v = v;
+    b.title = { top: 'oben', center: 'Mitte', bottom: 'unten' }[v] + ' / ' + { left: 'links', center: 'Mitte', right: 'rechts' }[h];
+    b.onclick = () => { pushUndo(uniq()); cur().thAlign = h; cur().tvAlign = v; render(); save(); };
+    $('pos').appendChild(b);
+  });
   $('reset').onclick = () => { pushUndo(uniq()); setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
   $('undo').onclick = undo;
   $('redo').onclick = redo;
