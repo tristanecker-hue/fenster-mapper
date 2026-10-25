@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fenster-Mapper</title>
+<style>
+  :root { --bg:#0b0f10; --panel:#12181a; --line:#26323a; --acc:#b8e986; --txt:#e6edf0; --mut:#8aa0a8; --red:#ff6b6b; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:#000; color:var(--txt); font:14px/1.4 system-ui, sans-serif; overflow:hidden; }
+  #stage { position:fixed; inset:0; background:#000; overflow:hidden; }
+  .surface { position:absolute; left:0; top:0; transform-origin:0 0; overflow:hidden; background:#000; }
+  .surface > .media { position:absolute; inset:0; width:100%; height:100%; object-fit:fill; display:block; }
+  .surface > canvas.fx { position:absolute; inset:0; width:100%; height:100%; display:none; }
+  .surface .ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#456; font-size:64px; border:4px dashed #234; }
+  .surface .grid { position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(#fff 0 0) top/100% 6px no-repeat, linear-gradient(#fff 0 0) bottom/100% 6px no-repeat,
+      linear-gradient(#fff 0 0) left/6px 100% no-repeat, linear-gradient(#fff 0 0) right/6px 100% no-repeat,
+      repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 2px, transparent 2px 10%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 2px, transparent 2px 10%); }
+  #maskLayer { position:absolute; inset:0; width:100%; height:100%; z-index:1000; pointer-events:none; }
+  #ov { position:fixed; inset:0; width:100%; height:100%; }
+  #panel { position:fixed; left:12px; top:12px; width:290px; max-height:calc(100% - 24px); overflow:auto; background:var(--panel);
+    border:1px solid var(--line); border-radius:12px; padding:14px; z-index:5; }
+  body.output #panel, body.output #ov { display:none; }
+  body.output { cursor:none; }
+  h1 { font-size:15px; margin:0 0 10px; letter-spacing:.04em; }
+  h2 { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.1em; margin:14px 0 6px; }
+  button, .btn, select { background:#1a2327; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; cursor:pointer; }
+  button:hover, .btn:hover, select:hover { border-color:var(--acc); }
+  button.primary, .btn.primary { background:var(--acc); color:#10200a; border-color:var(--acc); font-weight:600; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; align-items:center; }
+  .row > * { flex:1; text-align:center; }
+  label.c { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+  input[type=color] { width:44px; height:34px; flex:0 0 44px; padding:2px; background:#1a2327; border:1px solid var(--line); border-radius:8px; }
+  .sl { display:flex; align-items:center; gap:8px; margin-bottom:4px; } .sl span { width:78px; color:var(--mut); }
+  .item { padding:7px 9px; border:1px solid var(--line); border-radius:8px; margin-bottom:5px; cursor:pointer; display:flex; justify-content:space-between; gap:6px; }
+  .item.sel { border-color:var(--acc); background:#18240f; }
+  .hint { color:var(--mut); font-size:12px; margin-top:10px; }
+  kbd { background:#1a2327; border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="maskLayer"></svg>
+</div>
+<svg id="ov"></svg>
+
+<div id="panel">
+  <h1>FENSTER-MAPPER</h1>
+
+  <div class="row">
+    <label class="btn primary" for="file">Video / Bild wählen</label>
+    <input id="file" type="file" accept="video/*,image/*">
+  </div>
+  <div class="row">
+    <button id="fs" class="primary">Output Vollbild (F)</button>
+  </div>
+
+  <h2>Flächen</h2>
+  <div id="list"></div>
+  <div class="row">
+    <button id="add">+ Neue Fläche</button>
+    <button id="del">Löschen</button>
+  </div>
+
+  <h2>Ausgewählte Fläche</h2>
+  <div class="sl"><span>Helligkeit</span><input id="br" type="range" min="0" max="150" value="100"></div>
+  <div class="sl"><span>Deckkraft</span><input id="op" type="range" min="0" max="100" value="100"></div>
+  <div class="row">
+    <label class="c"><input id="vis" type="checkbox" checked> sichtbar</label>
+    <label class="c"><input id="loop" type="checkbox" checked> Loop</label>
+    <label class="c"><input id="mute" type="checkbox" checked> stumm</label>
+  </div>
+  <div class="row">
+    <button id="play">Play / Pause (Leertaste)</button>
+  </div>
+  <div class="row">
+    <button id="reset">Ecken zurücksetzen</button>
+  </div>
+
+  <h2>Effekt</h2>
+  <div class="row">
+    <select id="fx">
+      <option value="none">Kein Effekt</option>
+      <option value="scan">Scan-Linie</option>
+      <option value="bars">Balken</option>
+      <option value="wave">Wellen</option>
+      <option value="radar">Radar</option>
+      <option value="rings">Ringe</option>
+      <option value="aurora">Aurora</option>
+      <option value="constellation">Sternbild</option>
+      <option value="pixelrain">Pixel-Regen</option>
+    </select>
+    <input id="fxc" type="color" value="#b8e986" title="Farbe">
+  </div>
+  <div class="sl"><span>Tempo</span><input id="fxs" type="range" min="10" max="300" value="100"></div>
+
+  <h2>Masken (Rahmen abdecken)</h2>
+  <div class="row">
+    <button id="addMask">+ Maske</button>
+    <button id="delMask">Maske löschen</button>
+  </div>
+  <div class="sl"><span>Kante weich</span><input id="soft" type="range" min="0" max="20" value="0"></div>
+
+  <h2>Einmessen</h2>
+  <div class="row"><button id="gridBtn">Testraster ein/aus (G)</button></div>
+
+  <div class="hint">
+    Ecken mit der Maus ziehen, um den Rahmen ans Fenster anzupassen. Innerhalb der Fläche ziehen verschiebt sie.
+    Mit <kbd>←↑→↓</kbd> feinjustieren (<kbd>Shift</kbd> = grössere Schritte).
+    <kbd>H</kbd> blendet die Bedienung aus/ein.<br><br>
+    <b>Masken</b> sind schwarze Vierecke, die du über Fensterrahmen oder Sprossen legst. Sie erscheinen im Editor rot umrandet.<br><br>
+    Für den Beamer: Browserfenster auf den Beamer ziehen, dann <kbd>F</kbd>. Mit <kbd>Esc</kbd> zurück.<br><br>
+    Eckpunkte, Masken und Effekte werden automatisch gespeichert, die Mediendatei muss nach einem Neustart neu gewählt werden.
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORE = 'fenster-mapper-v1';
+  const stage = document.getElementById('stage');
+  const ov = document.getElementById('ov');
+  const maskLayer = document.getElementById('maskLayer');
+  const $ = id => document.getElementById(id);
+
+  let state = { surfaces: [], masks: [], sel: 0, selMask: null, selPt: null, grid: false, maskSoft: 0 };
+  let nextId = 1;
+
+  function defaultPts() {
+    const W = innerWidth, H = innerHeight;
+    const w = W * 0.45, h = H * 0.45, x = (W - w) / 2 + 150, y = (H - h) / 2;
+    return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  }
+  function defaultMaskPts() {
+    const W = innerWidth, H = innerHeight;
+    const w = W * 0.04, h = H * 0.3, x = W / 2 + 130, y = H / 2 - h / 2;
+    return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  }
+  function newSurface() {
+    return { id: nextId++, name: 'Fläche ' + (state.surfaces.length + 1), type: 'none', url: null, fileName: '',
+      w: 1920, h: 1080, pts: defaultPts(), brightness: 100, opacity: 100, visible: true, loop: true, muted: true,
+      fx: 'none', fxColor: '#b8e986', fxSpeed: 100 };
+  }
+  const cur = () => state.surfaces[state.sel];
+  const getPts = () => state.selMask !== null ? state.masks[state.selMask].pts : cur().pts;
+  const setPts = p => { if (state.selMask !== null) state.masks[state.selMask].pts = p; else cur().pts = p; };
+
+  // ---------- Speichern / Laden ----------
+  function save() {
+    try {
+      const data = state.surfaces.map(s => ({ id:s.id, name:s.name, fileName:s.fileName, w:s.w, h:s.h, pts:s.pts,
+        brightness:s.brightness, opacity:s.opacity, visible:s.visible, loop:s.loop, muted:s.muted,
+        fx:s.fx, fxColor:s.fxColor, fxSpeed:s.fxSpeed }));
+      localStorage.setItem(STORE, JSON.stringify({ surfaces:data, sel:state.sel, masks:state.masks, maskSoft:state.maskSoft }));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (raw && raw.surfaces && raw.surfaces.length) {
+        state.surfaces = raw.surfaces.map(s => Object.assign({ type:'none', url:null, fx:'none', fxColor:'#b8e986', fxSpeed:100 }, s));
+        state.sel = Math.min(raw.sel || 0, state.surfaces.length - 1);
+        state.masks = Array.isArray(raw.masks) ? raw.masks : [];
+        state.maskSoft = raw.maskSoft || 0;
+        nextId = Math.max(...state.surfaces.map(s => s.id)) + 1;
+        return;
+      }
+    } catch (e) {}
+    state.surfaces = [newSurface()];
+  }
+
+  // ---------- Perspektivische Verzerrung ----------
+  function solve(A, b) {
+    const n = b.length;
+    for (let i = 0; i < n; i++) {
+      let p = i;
+      for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+      for (let r = i + 1; r < n; r++) {
+        const f = A[r][i] / A[i][i];
+        for (let c = i; c < n; c++) A[r][c] -= f * A[i][c];
+        b[r] -= f * b[i];
+      }
+    }
+    const x = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) {
+      let s = b[i];
+      for (let c = i + 1; c < n; c++) s -= A[i][c] * x[c];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  function matrix3d(w, h, pts) {
+    const src = [[0,0],[w,0],[w,h],[0,h]];
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = src[i], [X, Y] = pts[i];
+      A.push([x, y, 1, 0, 0, 0, -x*X, -y*X]); b.push(X);
+      A.push([0, 0, 0, x, y, 1, -x*Y, -y*Y]); b.push(Y);
+    }
+    const [a, bb, c, d, e, f, g, hh] = solve(A, b);
+    return `matrix3d(${a},${d},0,${g},${bb},${e},0,${hh},0,0,1,0,${c},${f},0,1)`;
+  }
+
+  // ---------- Effekte ----------
+  const rgba = (hex, a) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  };
+  const FX = {
+    scan(c, w, h, t, col) {
+      const y = ((t * 0.35) % 1.25 - 0.1) * h, tr = h * 0.25;
+      const g = c.createLinearGradient(0, y - tr, 0, y);
+      g.addColorStop(0, rgba(col, 0)); g.addColorStop(1, rgba(col, 0.8));
+      c.fillStyle = g; c.fillRect(0, y - tr, w, tr);
+      c.fillStyle = rgba(col, 1); c.fillRect(0, y, w, Math.max(3, h * 0.006));
+    },
+    bars(c, w, h, t, col) {
+      const n = 28, bw = w / n;
+      c.fillStyle = rgba(col, 0.85);
+      for (let i = 0; i < n; i++) {
+        const v = (0.2 + 0.7 * Math.abs(Math.sin(t * 1.7 + i * 0.55))) * (0.6 + 0.4 * Math.sin(t * 0.9 + i * 1.3));
+        const hg = v * h;
+        c.fillRect(i * bw + bw * 0.12, h - hg, bw * 0.76, hg);
+      }
+    },
+    wave(c, w, h, t, col) {
+      c.lineWidth = Math.max(2, h * 0.006);
+      for (let k = 0; k < 5; k++) {
+        c.strokeStyle = rgba(col, 0.85 - k * 0.14);
+        c.beginPath();
+        for (let x = 0; x <= w; x += 4) {
+          const y = h / 2 + Math.sin(x / w * 6.283 * (1 + k * 0.4) + t * (1 + k * 0.3)) * h * (0.12 + 0.05 * k);
+          x === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+        }
+        c.stroke();
+      }
+    },
+    radar(c, w, h, t, col) {
+      const cx = w / 2, cy = h / 2, R = Math.hypot(w, h) / 2, ang = t * 1.2;
+      for (let k = 0; k < 40; k++) {
+        const a0 = ang - k * 0.03;
+        c.fillStyle = rgba(col, (1 - k / 40) * 0.5);
+        c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R, a0 - 0.03, a0); c.closePath(); c.fill();
+      }
+      c.strokeStyle = rgba(col, 0.3); c.lineWidth = Math.max(2, h * 0.004);
+      for (let k = 1; k <= 3; k++) { c.beginPath(); c.arc(cx, cy, h * 0.17 * k, 0, 6.283); c.stroke(); }
+    },
+    rings(c, w, h, t, col) {
+      const cx = w / 2, cy = h / 2, R = Math.hypot(w, h) / 2;
+      c.lineWidth = Math.max(3, h * 0.008);
+      for (let k = 0; k < 6; k++) {
+        const p = (t * 0.25 + k / 6) % 1;
+        c.strokeStyle = rgba(col, (1 - p) * 0.9);
+        c.beginPath(); c.arc(cx, cy, p * R, 0, 6.283); c.stroke();
+      }
+    },
+    aurora(c, w, h, t, col) {
+      c.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < 4; k++) {
+        for (let x = 0; x < w; x += 6) {
+          const y0 = h * (0.2 + 0.08 * k) + Math.sin(x * 0.008 + t * 0.8 + k * 2) * h * 0.08 + Math.sin(x * 0.02 + t * 0.5) * h * 0.03;
+          const g = c.createLinearGradient(0, y0, 0, y0 + h * 0.4);
+          g.addColorStop(0, rgba(col, 0.32)); g.addColorStop(1, rgba(col, 0));
+          c.fillStyle = g; c.fillRect(x, y0, 6, h * 0.4);
+        }
+      }
+      c.globalCompositeOperation = 'source-over';
+    },
+    constellation(c, w, h, t, col, st) {
+      if (!st.pts) st.pts = Array.from({ length: 70 }, () => ({ x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * w * 0.05, vy: (Math.random() - 0.5) * h * 0.05 }));
+      for (const p of st.pts) {
+        p.x += p.vx * st.dt; p.y += p.vy * st.dt;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+      }
+      const maxd = w * 0.12;
+      c.lineWidth = Math.max(1.5, h * 0.003);
+      for (let i = 0; i < st.pts.length; i++) {
+        const a = st.pts[i];
+        for (let j = i + 1; j < st.pts.length; j++) {
+          const b = st.pts[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < maxd) { c.strokeStyle = rgba(col, (1 - d / maxd) * 0.7); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+        }
+      }
+      c.fillStyle = rgba(col, 1);
+      for (const p of st.pts) { c.beginPath(); c.arc(p.x, p.y, Math.max(2, h * 0.005), 0, 6.283); c.fill(); }
+    },
+    pixelrain(c, w, h, t, col, st) {
+      const cols = 48, cs = w / cols;
+      if (!st.y) { st.y = Array.from({ length: cols }, () => Math.random() * h); st.v = Array.from({ length: cols }, () => h * (0.25 + Math.random() * 0.45)); }
+      for (let i = 0; i < cols; i++) {
+        st.y[i] += st.v[i] * st.dt;
+        if (st.y[i] - cs * 8 > h) { st.y[i] = 0; st.v[i] = h * (0.25 + Math.random() * 0.45); }
+        for (let k = 0; k < 8; k++) {
+          c.fillStyle = rgba(col, (1 - k / 8) * 0.9);
+          c.fillRect(i * cs + cs * 0.1, st.y[i] - k * cs, cs * 0.8, cs * 0.8);
+        }
+      }
+    }
+  };
+
+  // ---------- Rendern ----------
+  const els = new Map(); // id -> {root, ph, canvas, grid, media}
+  function ensureEl(s) {
+    let o = els.get(s.id);
+    if (o) return o;
+    const root = document.createElement('div'); root.className = 'surface';
+    const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = s.name;
+    const canvas = document.createElement('canvas'); canvas.className = 'fx';
+    const grid = document.createElement('div'); grid.className = 'grid';
+    root.append(ph, canvas, grid); stage.insertBefore(root, maskLayer);
+    o = { root, ph, canvas, grid, media: null, fxType: null, fxState: null }; els.set(s.id, o);
+    return o;
+  }
+  function attachMedia(s) {
+    const o = ensureEl(s);
+    if (o.media) { o.media.remove(); o.media = null; }
+    if (s.type === 'video') {
+      const v = document.createElement('video');
+      v.className = 'media'; v.src = s.url; v.loop = s.loop; v.muted = s.muted; v.playsInline = true; v.autoplay = true;
+      v.addEventListener('loadedmetadata', () => { s.w = v.videoWidth || 1920; s.h = v.videoHeight || 1080; render(); });
+      o.root.insertBefore(v, o.ph); o.media = v; v.play().catch(() => {});
+    } else if (s.type === 'image') {
+      const im = document.createElement('img');
+      im.className = 'media'; im.src = s.url;
+      im.addEventListener('load', () => { s.w = im.naturalWidth || 1920; s.h = im.naturalHeight || 1080; render(); });
+      o.root.insertBefore(im, o.ph); o.media = im;
+    }
+  }
+  function drawMasks() {
+    maskLayer.replaceChildren();
+    state.masks.forEach(m => maskLayer.appendChild(mk('polygon', { points: m.pts.map(p => p.join(',')).join(' '), fill: '#000' })));
+    maskLayer.style.filter = state.maskSoft ? `blur(${state.maskSoft}px)` : 'none';
+  }
+  function render() {
+    const alive = new Set(state.surfaces.map(s => s.id));
+    for (const [id, o] of els) if (!alive.has(id)) { o.root.remove(); els.delete(id); }
+    const outputMode = document.body.classList.contains('output');
+    state.surfaces.forEach((s, i) => {
+      const o = ensureEl(s);
+      o.root.style.width = s.w + 'px';
+      o.root.style.height = s.h + 'px';
+      o.root.style.transform = matrix3d(s.w, s.h, s.pts);
+      o.root.style.display = s.visible ? 'block' : 'none';
+      o.root.style.opacity = s.opacity / 100;
+      o.root.style.filter = `brightness(${s.brightness / 100})`;
+      o.root.style.zIndex = i;
+      o.ph.style.display = s.type === 'none' && s.fx === 'none' && !outputMode ? 'flex' : 'none';
+      o.ph.textContent = s.name;
+      o.grid.style.display = state.grid ? 'block' : 'none';
+      if (o.media && s.type === 'video') { o.media.loop = s.loop; o.media.muted = s.muted; }
+      // Effekt-Canvas
+      if (s.fx === 'none') { o.canvas.style.display = 'none'; }
+      else {
+        const cw = Math.min(s.w, 1280), ch = Math.round(cw * s.h / s.w);
+        if (o.canvas.width !== cw || o.canvas.height !== ch) { o.canvas.width = cw; o.canvas.height = ch; }
+        o.canvas.style.display = 'block';
+        o.canvas.style.mixBlendMode = s.type !== 'none' ? 'screen' : 'normal';
+      }
+    });
+    drawMasks(); drawOverlay(); drawList(); syncPanel();
+  }
+
+  // Animationsschleife für Effekte
+  function tick(now) {
+    requestAnimationFrame(tick);
+    for (const s of state.surfaces) {
+      if (s.fx === 'none' || !s.visible || !FX[s.fx]) continue;
+      const o = els.get(s.id); if (!o || !o.canvas.width) continue;
+      if (o.fxType !== s.fx) { o.fxType = s.fx; o.fxState = { time: 0, last: now, dt: 0 }; }
+      const st = o.fxState;
+      const dt = Math.min(0.1, (now - st.last) / 1000) * (s.fxSpeed / 100);
+      st.last = now; st.time += dt; st.dt = dt;
+      const c = o.canvas.getContext('2d');
+      c.clearRect(0, 0, o.canvas.width, o.canvas.height);
+      FX[s.fx](c, o.canvas.width, o.canvas.height, st.time, s.fxColor, st);
+    }
+  }
+  requestAnimationFrame(tick);
+
+  // ---------- Overlay mit Eckpunkten ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  function mk(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+  function handles(pts, color, kind, idx) {
+    pts.forEach((p, k) => {
+      const c = mk('circle', { cx: p[0], cy: p[1], r: state.selPt === k ? 11 : 9,
+        fill: state.selPt === k ? '#fff' : color, stroke: '#10200a', 'stroke-width': 2 });
+      c.style.cursor = 'crosshair';
+      c.addEventListener('pointerdown', e => startDrag(e, kind, idx, k));
+      ov.appendChild(c);
+    });
+  }
+  function drawOverlay() {
+    ov.replaceChildren();
+    state.surfaces.forEach((s, i) => {
+      const selected = state.selMask === null && i === state.sel;
+      const poly = mk('polygon', { points: s.pts.map(p => p.join(',')).join(' '),
+        fill: 'rgba(0,0,0,0)', stroke: selected ? '#b8e986' : 'rgba(255,255,255,.35)',
+        'stroke-width': selected ? 2 : 1, 'stroke-dasharray': '8 6', 'pointer-events': 'all' });
+      poly.style.cursor = 'move';
+      poly.addEventListener('pointerdown', e => startDrag(e, 's', i, null));
+      ov.appendChild(poly);
+      if (selected) handles(s.pts, '#b8e986', 's', i);
+    });
+    state.masks.forEach((m, i) => {
+      const selected = state.selMask === i;
+      const poly = mk('polygon', { points: m.pts.map(p => p.join(',')).join(' '),
+        fill: 'rgba(255,107,107,.12)', stroke: '#ff6b6b', 'stroke-width': selected ? 2 : 1,
+        'stroke-dasharray': '6 5', 'pointer-events': 'all' });
+      poly.style.cursor = 'move';
+      poly.addEventListener('pointerdown', e => startDrag(e, 'm', i, null));
+      ov.appendChild(poly);
+      if (selected) handles(m.pts, '#ff6b6b', 'm', i);
+    });
+  }
+
+  let drag = null;
+  function startDrag(e, kind, idx, pi) {
+    e.preventDefault(); e.stopPropagation();
+    if (kind === 's') { state.sel = idx; state.selMask = null; } else { state.selMask = idx; }
+    state.selPt = pi;
+    drag = { pi, sx: e.clientX, sy: e.clientY, orig: getPts().map(p => p.slice()) };
+    render();
+  }
+  window.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (drag.pi === null) setPts(drag.orig.map(p => [p[0] + dx, p[1] + dy]));
+    else { const pts = getPts().map(p => p.slice()); pts[drag.pi] = [drag.orig[drag.pi][0] + dx, drag.orig[drag.pi][1] + dy]; setPts(pts); }
+    render();
+  });
+  window.addEventListener('pointerup', () => { if (drag) { drag = null; save(); } });
+
+  // ---------- Panel ----------
+  function drawList() {
+    const l = $('list'); l.replaceChildren();
+    state.surfaces.forEach((s, i) => {
+      const d = document.createElement('div'); d.className = 'item' + (state.selMask === null && i === state.sel ? ' sel' : '');
+      const a = document.createElement('span'); a.textContent = s.name;
+      const b = document.createElement('span'); b.style.color = 'var(--mut)';
+      b.textContent = s.fileName ? s.fileName.slice(0, 18) : '–';
+      d.append(a, b); d.onclick = () => { state.sel = i; state.selMask = null; state.selPt = null; render(); };
+      l.appendChild(d);
+    });
+  }
+  function syncPanel() {
+    const s = cur(); if (!s) return;
+    $('br').value = s.brightness; $('op').value = s.opacity;
+    $('vis').checked = s.visible; $('loop').checked = s.loop; $('mute').checked = s.muted;
+    $('fx').value = s.fx; $('fxc').value = s.fxColor; $('fxs').value = s.fxSpeed;
+    $('soft').value = state.maskSoft;
+  }
+
+  $('file').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (state.selMask !== null) state.selMask = null;
+    const s = cur();
+    if (s.url) URL.revokeObjectURL(s.url);
+    s.url = URL.createObjectURL(f); s.fileName = f.name;
+    s.type = f.type.startsWith('image') ? 'image' : 'video';
+    attachMedia(s); render(); save();
+    e.target.value = '';
+  });
+  $('add').onclick = () => { state.surfaces.push(newSurface()); state.sel = state.surfaces.length - 1; state.selMask = null; render(); save(); };
+  $('del').onclick = () => {
+    if (state.surfaces.length <= 1) { const s = newSurface(); state.surfaces = [s]; state.sel = 0; }
+    else { state.surfaces.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); }
+    state.selMask = null; render(); save();
+  };
+  $('addMask').onclick = () => { state.masks.push({ pts: defaultMaskPts() }); state.selMask = state.masks.length - 1; state.selPt = null; render(); save(); };
+  $('delMask').onclick = () => {
+    if (state.selMask === null) { if (state.masks.length) state.masks.pop(); }
+    else { state.masks.splice(state.selMask, 1); }
+    state.selMask = null; state.selPt = null; render(); save();
+  };
+  $('soft').oninput = e => { state.maskSoft = +e.target.value; render(); save(); };
+  $('br').oninput = e => { cur().brightness = +e.target.value; render(); save(); };
+  $('op').oninput = e => { cur().opacity = +e.target.value; render(); save(); };
+  $('vis').onchange = e => { cur().visible = e.target.checked; render(); save(); };
+  $('loop').onchange = e => { cur().loop = e.target.checked; render(); save(); };
+  $('mute').onchange = e => { cur().muted = e.target.checked; render(); save(); };
+  $('fx').onchange = e => { cur().fx = e.target.value; render(); save(); };
+  $('fxc').oninput = e => { cur().fxColor = e.target.value; save(); };
+  $('fxs').oninput = e => { cur().fxSpeed = +e.target.value; save(); };
+  $('reset').onclick = () => { setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
+  function togglePlay() {
+    const o = els.get(cur().id);
+    if (o && o.media && o.media.tagName === 'VIDEO') o.media.paused ? o.media.play() : o.media.pause();
+  }
+  $('play').onclick = togglePlay;
+  const toggleGrid = () => { state.grid = !state.grid; render(); };
+  $('gridBtn').onclick = toggleGrid;
+
+  // ---------- Output / Vollbild ----------
+  function setOutput(on) {
+    document.body.classList.toggle('output', on);
+    render();
+  }
+  function toggleOutput() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setOutput(true);
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  $('fs').onclick = toggleOutput;
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) setOutput(false); });
+
+  window.addEventListener('keydown', e => {
+    const t = e.target;
+    if ((t.tagName === 'INPUT' && t.type !== 'range' && t.type !== 'checkbox' && t.type !== 'color') || t.tagName === 'SELECT') return;
+    const k = e.key;
+    if (k === 'f' || k === 'F') { toggleOutput(); return; }
+    if (k === 'h' || k === 'H') { setOutput(!document.body.classList.contains('output')); return; }
+    if (k === 'g' || k === 'G') { toggleGrid(); return; }
+    if (k === ' ') { e.preventDefault(); togglePlay(); return; }
+    const step = e.shiftKey ? 10 : 1;
+    const d = { ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step] }[k];
+    if (d) {
+      e.preventDefault();
+      const pts = getPts().map(p => p.slice());
+      if (state.selPt === null) setPts(pts.map(p => [p[0] + d[0], p[1] + d[1]]));
+      else { pts[state.selPt] = [pts[state.selPt][0] + d[0], pts[state.selPt][1] + d[1]]; setPts(pts); }
+      render(); save();
+    }
+  });
+  window.addEventListener('resize', render);
+
+  // ---------- Start ----------
+  load(); render();
+})();
+</script>
+</body>
+</html>
