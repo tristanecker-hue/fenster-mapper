@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fenster-Mapper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&family=Eater&family=Butcherman&family=Metal+Mania&family=Pirata+One&family=UnifrakturCook:wght@700&family=Special+Elite&family=Rubik+Wet+Paint&family=Permanent+Marker&display=swap" rel="stylesheet">
 <style>
   :root { --bg:#0b0f10; --panel:#12181a; --line:#26323a; --acc:#b8e986; --txt:#e6edf0; --mut:#8aa0a8; --red:#ff6b6b; }
   * { box-sizing: border-box; }
@@ -19,6 +22,15 @@
       linear-gradient(#fff 0 0) left/6px 100% no-repeat, linear-gradient(#fff 0 0) right/6px 100% no-repeat,
       repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 2px, transparent 2px 10%),
       repeating-linear-gradient(0deg, rgba(255,255,255,.55) 0 2px, transparent 2px 10%); }
+  .surface .txt { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center;
+    white-space:pre-wrap; line-height:1.1; padding:4%; pointer-events:none; word-break:break-word; }
+  .surface .txt.flicker { animation: flicker 2.4s infinite; }
+  .surface .txt.pulse { animation: pulse 2.2s ease-in-out infinite; }
+  @keyframes flicker { 0%,19%,21%,23%,25%,54%,56%,100% { opacity:1 } 20%,24%,55% { opacity:.2 } 22% { opacity:.6 } }
+  @keyframes pulse { 0%,100% { opacity:.55; transform:scale(.97) } 50% { opacity:1; transform:scale(1.03) } }
+  textarea { width:100%; background:#1a2327; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; resize:vertical; margin-bottom:6px; }
+  #presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  #presets button { text-align:left; font-size:13px; }
   #maskLayer { position:absolute; inset:0; width:100%; height:100%; z-index:1000; pointer-events:none; }
   #ov { position:fixed; inset:0; width:100%; height:100%; }
   #panel { position:fixed; left:12px; top:12px; width:290px; max-height:calc(100% - 24px); overflow:auto; background:var(--panel);
@@ -94,10 +106,53 @@
       <option value="aurora">Aurora</option>
       <option value="constellation">Sternbild</option>
       <option value="pixelrain">Pixel-Regen</option>
+      <option value="web">Spinnennetz</option>
+      <option value="bats">Fledermäuse</option>
+      <option value="fog">Nebel</option>
     </select>
     <input id="fxc" type="color" value="#b8e986" title="Farbe">
   </div>
   <div class="sl"><span>Tempo</span><input id="fxs" type="range" min="10" max="300" value="100"></div>
+
+  <h2>Text</h2>
+  <textarea id="txt" rows="2" placeholder="Text eingeben (leer = kein Text)"></textarea>
+  <div class="row">
+    <select id="font">
+      <option value="Creepster">Creepster (Halloween)</option>
+      <option value="Nosifer">Nosifer (tropfend)</option>
+      <option value="Eater">Eater (Horror)</option>
+      <option value="Butcherman">Butcherman</option>
+      <option value="Metal Mania">Metal Mania</option>
+      <option value="Rubik Wet Paint">Rubik Wet Paint</option>
+      <option value="Pirata One">Pirata One (Fraktur)</option>
+      <option value="UnifrakturCook">UnifrakturCook (Gotisch)</option>
+      <option value="Special Elite">Special Elite (Schreibmaschine)</option>
+      <option value="Permanent Marker">Permanent Marker</option>
+      <option value="Impact">Impact</option>
+      <option value="Arial Black">Arial Black</option>
+      <option value="Georgia">Georgia (Serif)</option>
+      <option value="Courier New">Courier New</option>
+      <option value="Brush Script MT">Brush Script</option>
+      <option value="Comic Sans MS">Comic Sans</option>
+    </select>
+  </div>
+  <div class="sl"><span>Grösse</span><input id="tsize" type="range" min="3" max="80" value="20"></div>
+  <div class="row">
+    <input id="tcolor" type="color" value="#ff7a1a" title="Textfarbe">
+    <label class="c"><input id="tglow" type="checkbox" checked> Glühen</label>
+    <label class="c"><input id="tbold" type="checkbox"> fett</label>
+  </div>
+  <div class="row">
+    <select id="tanim">
+      <option value="none">Ohne Animation</option>
+      <option value="flicker">Flackern</option>
+      <option value="pulse">Pulsieren</option>
+    </select>
+  </div>
+
+  <h2>Halloween-Vorlagen</h2>
+  <div id="presets"></div>
+  <div class="hint">Vorlagen gelten für die ausgewählte Fläche und lassen sich danach anpassen.</div>
 
   <h2>Masken (Rahmen abdecken)</h2>
   <div class="row">
@@ -143,7 +198,8 @@
   function newSurface() {
     return { id: nextId++, name: 'Fläche ' + (state.surfaces.length + 1), type: 'none', url: null, fileName: '',
       w: 1920, h: 1080, pts: defaultPts(), brightness: 100, opacity: 100, visible: true, loop: true, muted: true,
-      fx: 'none', fxColor: '#b8e986', fxSpeed: 100 };
+      fx: 'none', fxColor: '#b8e986', fxSpeed: 100,
+      txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none' };
   }
   const cur = () => state.surfaces[state.sel];
   const getPts = () => state.selMask !== null ? state.masks[state.selMask].pts : cur().pts;
@@ -154,7 +210,8 @@
     try {
       const data = state.surfaces.map(s => ({ id:s.id, name:s.name, fileName:s.fileName, w:s.w, h:s.h, pts:s.pts,
         brightness:s.brightness, opacity:s.opacity, visible:s.visible, loop:s.loop, muted:s.muted,
-        fx:s.fx, fxColor:s.fxColor, fxSpeed:s.fxSpeed }));
+        fx:s.fx, fxColor:s.fxColor, fxSpeed:s.fxSpeed,
+        txt:s.txt, font:s.font, tsize:s.tsize, tcolor:s.tcolor, tglow:s.tglow, tbold:s.tbold, tanim:s.tanim }));
       localStorage.setItem(STORE, JSON.stringify({ surfaces:data, sel:state.sel, masks:state.masks, maskSoft:state.maskSoft }));
     } catch (e) {}
   }
@@ -162,7 +219,8 @@
     try {
       const raw = JSON.parse(localStorage.getItem(STORE) || 'null');
       if (raw && raw.surfaces && raw.surfaces.length) {
-        state.surfaces = raw.surfaces.map(s => Object.assign({ type:'none', url:null, fx:'none', fxColor:'#b8e986', fxSpeed:100 }, s));
+        state.surfaces = raw.surfaces.map(s => Object.assign({ type:'none', url:null, fx:'none', fxColor:'#b8e986', fxSpeed:100,
+          txt:'', font:'Creepster', tsize:20, tcolor:'#ff7a1a', tglow:true, tbold:false, tanim:'none' }, s));
         state.sel = Math.min(raw.sel || 0, state.surfaces.length - 1);
         state.masks = Array.isArray(raw.masks) ? raw.masks : [];
         state.maskSoft = raw.maskSoft || 0;
@@ -291,6 +349,64 @@
       c.fillStyle = rgba(col, 1);
       for (const p of st.pts) { c.beginPath(); c.arc(p.x, p.y, Math.max(2, h * 0.005), 0, 6.283); c.fill(); }
     },
+    web(c, w, h, t, col) {
+      const drawWeb = () => {
+        const n = 9, R = h * 0.95, sway = Math.sin(t * 0.5) * 0.012;
+        c.strokeStyle = rgba(col, 0.85); c.lineWidth = Math.max(1.5, h * 0.003);
+        const ang = k => (k / (n - 1)) * (Math.PI / 2) + sway * (k % 2 ? 1 : -1);
+        for (let k = 0; k < n; k++) { c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang(k)) * R, Math.sin(ang(k)) * R); c.stroke(); }
+        for (let r = 1; r <= 8; r++) {
+          const rad = R * r / 8 * (r === 8 ? 1 : 0.92 + 0.08 * Math.sin(t * 0.7 + r));
+          c.beginPath();
+          for (let k = 0; k < n; k++) {
+            const x = Math.cos(ang(k)) * rad, y = Math.sin(ang(k)) * rad;
+            if (k === 0) { c.moveTo(x, y); continue; }
+            const pa = ang(k - 1), a = ang(k), ma = (pa + a) / 2, sag = rad * 0.88;
+            c.quadraticCurveTo(Math.cos(ma) * sag, Math.sin(ma) * sag, x, y);
+          }
+          c.stroke();
+        }
+      };
+      c.save(); drawWeb(); c.restore();
+      c.save(); c.translate(w, h); c.rotate(Math.PI); drawWeb(); c.restore();
+    },
+    bats(c, w, h, t, col, st) {
+      if (!st.b) st.b = Array.from({ length: 7 }, () => ({ x: Math.random() * w, y: h * (0.1 + Math.random() * 0.7),
+        vx: w * (0.08 + Math.random() * 0.12) * (Math.random() < 0.5 ? -1 : 1), s: h * (0.025 + Math.random() * 0.03), ph: Math.random() * 6.28 }));
+      for (const b of st.b) {
+        b.x += b.vx * st.dt;
+        if (b.x > w + b.s * 3) b.x = -b.s * 3; if (b.x < -b.s * 3) b.x = w + b.s * 3;
+        const y = b.y + Math.sin(t * 1.5 + b.ph) * h * 0.04, flap = Math.sin(t * 9 + b.ph);
+        c.save(); c.translate(b.x, y); c.scale(b.s * (b.vx < 0 ? -1 : 1), b.s);
+        c.fillStyle = rgba(col, 1); c.shadowColor = rgba(col, 0.9); c.shadowBlur = b.s * 0.8;
+        c.beginPath(); c.ellipse(0, 0, 0.35, 0.7, 0, 0, 6.283); c.fill();
+        c.beginPath(); c.arc(0, -0.75, 0.3, 0, 6.283); c.fill();
+        c.beginPath(); c.moveTo(-0.28, -0.9); c.lineTo(-0.2, -1.35); c.lineTo(-0.05, -1); c.closePath(); c.fill();
+        c.beginPath(); c.moveTo(0.28, -0.9); c.lineTo(0.2, -1.35); c.lineTo(0.05, -1); c.closePath(); c.fill();
+        for (const side of [-1, 1]) {
+          c.beginPath(); c.moveTo(side * 0.2, -0.2);
+          c.quadraticCurveTo(side * 1.2, -0.9 - flap * 0.7, side * 2.3, -0.2 + flap * 0.5);
+          c.quadraticCurveTo(side * 1.7, -0.1, side * 1.5, 0.35);
+          c.quadraticCurveTo(side * 1.05, 0.05, side * 0.75, 0.55);
+          c.quadraticCurveTo(side * 0.5, 0.1, side * 0.2, 0.45);
+          c.closePath(); c.fill();
+        }
+        c.restore();
+      }
+    },
+    fog(c, w, h, t, col, st) {
+      if (!st.p) st.p = Array.from({ length: 16 }, () => ({ x: Math.random() * w, y: h * (0.4 + Math.random() * 0.8),
+        r: h * (0.18 + Math.random() * 0.25), vy: -h * (0.01 + Math.random() * 0.03), vx: w * (Math.random() - 0.5) * 0.02, a: 0.12 + Math.random() * 0.15 }));
+      c.globalCompositeOperation = 'lighter';
+      for (const p of st.p) {
+        p.x += p.vx * st.dt; p.y += p.vy * st.dt;
+        if (p.y + p.r < 0) { p.y = h + p.r; p.x = Math.random() * w; }
+        const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        g.addColorStop(0, rgba(col, p.a)); g.addColorStop(1, rgba(col, 0));
+        c.fillStyle = g; c.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+      }
+      c.globalCompositeOperation = 'source-over';
+    },
     pixelrain(c, w, h, t, col, st) {
       const cols = 48, cs = w / cols;
       if (!st.y) { st.y = Array.from({ length: cols }, () => Math.random() * h); st.v = Array.from({ length: cols }, () => h * (0.25 + Math.random() * 0.45)); }
@@ -313,9 +429,10 @@
     const root = document.createElement('div'); root.className = 'surface';
     const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = s.name;
     const canvas = document.createElement('canvas'); canvas.className = 'fx';
+    const txt = document.createElement('div'); txt.className = 'txt';
     const grid = document.createElement('div'); grid.className = 'grid';
-    root.append(ph, canvas, grid); stage.insertBefore(root, maskLayer);
-    o = { root, ph, canvas, grid, media: null, fxType: null, fxState: null }; els.set(s.id, o);
+    root.append(ph, canvas, txt, grid); stage.insertBefore(root, maskLayer);
+    o = { root, ph, canvas, txt, grid, media: null, fxType: null, fxState: null }; els.set(s.id, o);
     return o;
   }
   function attachMedia(s) {
@@ -351,7 +468,17 @@
       o.root.style.opacity = s.opacity / 100;
       o.root.style.filter = `brightness(${s.brightness / 100})`;
       o.root.style.zIndex = i;
-      o.ph.style.display = s.type === 'none' && s.fx === 'none' && !outputMode ? 'flex' : 'none';
+      o.ph.style.display = s.type === 'none' && s.fx === 'none' && !s.txt && !outputMode ? 'flex' : 'none';
+      // Text
+      const fs = s.h * s.tsize / 100;
+      o.txt.textContent = s.txt;
+      o.txt.style.display = s.txt ? 'flex' : 'none';
+      o.txt.style.fontFamily = `'${s.font}', Impact, sans-serif`;
+      o.txt.style.fontSize = fs + 'px';
+      o.txt.style.color = s.tcolor;
+      o.txt.style.fontWeight = s.tbold ? '800' : '400';
+      o.txt.style.textShadow = s.tglow ? `0 0 ${fs * 0.06}px ${s.tcolor}, 0 0 ${fs * 0.2}px ${s.tcolor}, 0 0 ${fs * 0.4}px ${s.tcolor}` : 'none';
+      o.txt.className = 'txt' + (s.tanim !== 'none' ? ' ' + s.tanim : '');
       o.ph.textContent = s.name;
       o.grid.style.display = state.grid ? 'block' : 'none';
       if (o.media && s.type === 'video') { o.media.loop = s.loop; o.media.muted = s.muted; }
@@ -454,6 +581,9 @@
     $('br').value = s.brightness; $('op').value = s.opacity;
     $('vis').checked = s.visible; $('loop').checked = s.loop; $('mute').checked = s.muted;
     $('fx').value = s.fx; $('fxc').value = s.fxColor; $('fxs').value = s.fxSpeed;
+    if (document.activeElement !== $('txt')) $('txt').value = s.txt;
+    $('font').value = s.font; $('tsize').value = s.tsize; $('tcolor').value = s.tcolor;
+    $('tglow').checked = s.tglow; $('tbold').checked = s.tbold; $('tanim').value = s.tanim;
     $('soft').value = state.maskSoft;
   }
 
@@ -488,6 +618,31 @@
   $('fx').onchange = e => { cur().fx = e.target.value; render(); save(); };
   $('fxc').oninput = e => { cur().fxColor = e.target.value; save(); };
   $('fxs').oninput = e => { cur().fxSpeed = +e.target.value; save(); };
+  $('txt').oninput = e => { cur().txt = e.target.value; render(); save(); };
+  $('font').onchange = e => { cur().font = e.target.value; render(); save(); };
+  $('tsize').oninput = e => { cur().tsize = +e.target.value; render(); save(); };
+  $('tcolor').oninput = e => { cur().tcolor = e.target.value; render(); save(); };
+  $('tglow').onchange = e => { cur().tglow = e.target.checked; render(); save(); };
+  $('tbold').onchange = e => { cur().tbold = e.target.checked; render(); save(); };
+  $('tanim').onchange = e => { cur().tanim = e.target.value; render(); save(); };
+
+  // Halloween-Vorlagen
+  const PRESETS = [
+    { name: 'Kürbis-Glühen', set: { fx: 'aurora', fxColor: '#ff7a1a', fxSpeed: 80, txt: 'Happy\nHalloween', font: 'Creepster', tsize: 22, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'flicker' } },
+    { name: 'Geisterstunde', set: { fx: 'rings', fxColor: '#7CFF6B', fxSpeed: 70, txt: 'BUUH!', font: 'Nosifer', tsize: 26, tcolor: '#9dff9d', tglow: true, tbold: false, tanim: 'pulse' } },
+    { name: 'Blutiger Regen', set: { fx: 'pixelrain', fxColor: '#ff1a1a', fxSpeed: 90, txt: 'BLUT', font: 'Eater', tsize: 30, tcolor: '#ff2b2b', tglow: true, tbold: false, tanim: 'flicker' } },
+    { name: 'Hexenküche', set: { fx: 'aurora', fxColor: '#9b4dff', fxSpeed: 90, txt: 'Hexenküche', font: 'Pirata One', tsize: 20, tcolor: '#c58bff', tglow: true, tbold: false, tanim: 'pulse' } },
+    { name: 'Fledermäuse', set: { fx: 'bats', fxColor: '#ff7a1a', fxSpeed: 100, txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none' } },
+    { name: 'Spinnennetz', set: { fx: 'web', fxColor: '#e8e8e8', fxSpeed: 100, txt: '', font: 'Creepster', tsize: 20, tcolor: '#ffffff', tglow: true, tbold: false, tanim: 'none' } },
+    { name: 'Nebel & Gruft', set: { fx: 'fog', fxColor: '#7fd6ff', fxSpeed: 80, txt: 'Betreten auf\neigene Gefahr', font: 'Special Elite', tsize: 14, tcolor: '#e8f6ff', tglow: true, tbold: false, tanim: 'flicker' } },
+    { name: 'Konstellation', set: { fx: 'constellation', fxColor: '#ff7a1a', fxSpeed: 100, txt: 'Trick or Treat', font: 'Rubik Wet Paint', tsize: 16, tcolor: '#ff9a3c', tglow: true, tbold: false, tanim: 'pulse' } }
+  ];
+  PRESETS.forEach(p => {
+    const b = document.createElement('button'); b.textContent = p.name;
+    b.onclick = () => { if (state.selMask !== null) state.selMask = null; Object.assign(cur(), p.set); render(); save(); };
+    $('presets').appendChild(b);
+  });
+
   $('reset').onclick = () => { setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
   function togglePlay() {
     const o = els.get(cur().id);
@@ -515,7 +670,7 @@
 
   window.addEventListener('keydown', e => {
     const t = e.target;
-    if ((t.tagName === 'INPUT' && t.type !== 'range' && t.type !== 'checkbox' && t.type !== 'color') || t.tagName === 'SELECT') return;
+    if ((t.tagName === 'INPUT' && t.type !== 'range' && t.type !== 'checkbox' && t.type !== 'color') || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
     const k = e.key;
     if (k === 'f' || k === 'F') { toggleOutput(); return; }
     if (k === 'h' || k === 'H') { setOutput(!document.body.classList.contains('output')); return; }
