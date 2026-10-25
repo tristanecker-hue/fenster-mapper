@@ -249,6 +249,13 @@
           <option value="1024x768">1024 × 768 (4:3)</option>
         </select>
       </div>
+      <div class="row">
+        <input id="resw" type="text" inputmode="numeric" placeholder="Breite">
+        <input id="resh" type="text" inputmode="numeric" placeholder="Höhe">
+        <button id="resset">OK</button>
+      </div>
+      <div class="row"><button id="resscreen">Diesen Bildschirm übernehmen</button></div>
+      <div class="hint" id="screeninfo" style="margin:0 0 8px"></div>
       <div class="hint">Wähle die Auflösung deines Beamers. Die graue Umrandung im Editor zeigt genau den Bereich, der auf dem Beamer erscheint. Passt das Seitenverhältnis nicht zum Bildschirm, bleiben schwarze Ränder.</div>
     </div>
   </details>
@@ -426,6 +433,12 @@
         return;
       }
     } catch (e) {}
+    { // Erststart: Output-Fläche passend zum aktuellen Bildschirm
+      const d = window.devicePixelRatio || 1;
+      let w = Math.round(screen.width * d), h = Math.round(screen.height * d);
+      if (w > 3840) { h = Math.round(h * 3840 / w); w = 3840; }
+      if (w >= 320 && h >= 240) { state.stageW = w; state.stageH = h; }
+    }
     state.surfaces = [newSurface()];
   }
 
@@ -876,6 +889,10 @@
     const rv = state.stageW + 'x' + state.stageH;
     if (![...$('res').options].some(o => o.value === rv)) { const o = document.createElement('option'); o.value = rv; o.textContent = `${state.stageW} × ${state.stageH}`; $('res').appendChild(o); }
     $('res').value = rv;
+    if (document.activeElement !== $('resw') && document.activeElement !== $('resh')) { $('resw').value = state.stageW; $('resh').value = state.stageH; }
+    const [scw, sch] = screenRes();
+    $('screeninfo').textContent = `Dieser Bildschirm: ${scw} × ${sch} · Output-Fläche: ${state.stageW} × ${state.stageH}` +
+      (Math.abs(scw / sch - state.stageW / state.stageH) > 0.02 ? ' (anderes Seitenverhältnis, es bleiben schwarze Ränder)' : '');
     $('soft').value = state.maskSoft;
     $('sellabel').innerHTML = state.selMask !== null
       ? `Ausgewählt: <b>Maske ${state.selMask + 1}</b>`
@@ -949,16 +966,22 @@
   $('tdx').oninput = e => { pushUndo('tdx'); cur().tdx = +e.target.value; render(); save(); };
   $('tdy').oninput = e => { pushUndo('tdy'); cur().tdy = +e.target.value; render(); save(); };
   $('tzero').onclick = () => { pushUndo(uniq()); cur().tdx = 0; cur().tdy = 0; render(); save(); };
-  $('res').onchange = e => {
-    const [nw, nh] = e.target.value.split('x').map(Number);
-    if (!nw || !nh) return;
+  function setStage(nw, nh) {
+    nw = Math.round(nw); nh = Math.round(nh);
+    if (!(nw >= 320 && nw <= 7680 && nh >= 240 && nh <= 4320)) { setStatus('Auflösung ausserhalb von 320×240 bis 7680×4320.'); return; }
+    if (nw === state.stageW && nh === state.stageH) return;
     pushUndo(uniq());
     const sx = nw / state.stageW, sy = nh / state.stageH;
     state.surfaces.forEach(s => { s.pts = s.pts.map(p => [p[0] * sx, p[1] * sy]); });
     state.masks.forEach(m => { m.pts = m.pts.map(p => [p[0] * sx, p[1] * sy]); });
     state.stageW = nw; state.stageH = nh;
     render(); save();
-  };
+  }
+  const screenRes = () => { const d = window.devicePixelRatio || 1; return [Math.round(screen.width * d), Math.round(screen.height * d)]; };
+  $('res').onchange = e => { const [nw, nh] = e.target.value.split('x').map(Number); if (nw && nh) setStage(nw, nh); };
+  $('resset').onclick = () => setStage(parseInt($('resw').value, 10), parseInt($('resh').value, 10));
+  [$('resw'), $('resh')].forEach(i => { i.onkeydown = e => { if (e.key === 'Enter') $('resset').click(); }; });
+  $('resscreen').onclick = () => { const [w, h] = screenRes(); setStage(w, h); setStatus(`Output-Fläche auf ${w} × ${h} gesetzt.`); };
   $('reset').onclick = () => { pushUndo(uniq()); setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
   $('sname').oninput = e => { pushUndo('sname'); cur().name = e.target.value; render(); save(); };
   $('sname').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
