@@ -10,8 +10,10 @@
 <style>
   :root { --bg:#0b0f10; --panel:#12181a; --line:#26323a; --acc:#b8e986; --txt:#e6edf0; --mut:#8aa0a8; --red:#ff6b6b; }
   * { box-sizing: border-box; }
-  html, body { margin:0; height:100%; background:#000; color:var(--txt); font:14px/1.4 system-ui, sans-serif; overflow:hidden; }
-  #stage { position:fixed; inset:0; background:#000; overflow:hidden; }
+  html, body { margin:0; height:100%; background:#0d1113; color:var(--txt); font:14px/1.4 system-ui, sans-serif; overflow:hidden; }
+  body.output { background:#000; }
+  #stage { position:fixed; left:0; top:0; transform-origin:0 0; background:#000; overflow:hidden; box-shadow:0 0 0 2px #3a4a52; }
+  body.output #stage { box-shadow:none; }
   .surface { position:absolute; left:0; top:0; transform-origin:0 0; overflow:hidden; background:#000; }
   .surface > .media { position:absolute; inset:0; width:100%; height:100%; object-fit:fill; display:block; }
   .surface > canvas.fx { position:absolute; inset:0; width:100%; height:100%; display:none; }
@@ -196,6 +198,9 @@
         </select>
       </div>
       <div class="sl"><span>Position</span><div id="pos" class="posgrid"></div></div>
+      <div class="sl"><span>Versatz X</span><input id="tdx" type="range" min="-50" max="50" step="0.5" value="0"></div>
+      <div class="sl"><span>Versatz Y</span><input id="tdy" type="range" min="-50" max="50" step="0.5" value="0"></div>
+      <div class="row"><button id="tzero">Versatz zurücksetzen</button></div>
     </div>
   </details>
 
@@ -216,6 +221,23 @@
       </div>
       <div class="sl"><span>Kante weich</span><input id="soft" type="range" min="0" max="20" value="0"></div>
       <div class="hint">Masken sind schwarze Vierecke, die Fensterrahmen oder Sprossen abdecken. Im Editor sind sie rot umrandet.</div>
+    </div>
+  </details>
+
+  <details class="sec" data-id="output">
+    <summary>Output (Beamer)</summary>
+    <div class="body">
+      <div class="row">
+        <select id="res">
+          <option value="1920x1080">1920 × 1080 (Full HD)</option>
+          <option value="1280x720">1280 × 720 (HD)</option>
+          <option value="3840x2160">3840 × 2160 (4K)</option>
+          <option value="1920x1200">1920 × 1200 (16:10)</option>
+          <option value="1280x800">1280 × 800 (16:10)</option>
+          <option value="1024x768">1024 × 768 (4:3)</option>
+        </select>
+      </div>
+      <div class="hint">Wähle die Auflösung deines Beamers. Die graue Umrandung im Editor zeigt genau den Bereich, der auf dem Beamer erscheint. Passt das Seitenverhältnis nicht zum Bildschirm, bleiben schwarze Ränder.</div>
     </div>
   </details>
 
@@ -265,23 +287,39 @@
     brightness: 100, opacity: 100, visible: true, loop: true, muted: true,
     fx: 'none', fxColor: '#b8e986', fxSpeed: 100,
     txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none',
-    thAlign: 'center', tvAlign: 'center' };
+    thAlign: 'center', tvAlign: 'center', tdx: 0, tdy: 0 };
   const KEYS = ['id','name','fileName','mtype','w','h','pts','brightness','opacity','visible','loop','muted',
-    'fx','fxColor','fxSpeed','txt','font','tsize','tcolor','tglow','tbold','tanim','thAlign','tvAlign'];
+    'fx','fxColor','fxSpeed','txt','font','tsize','tcolor','tglow','tbold','tanim','thAlign','tvAlign','tdx','tdy'];
   const MEDIA_KEYS = ['url','type','fileName','mtype','w','h'];
 
-  let state = { surfaces: [], masks: [], sel: 0, selMask: null, selPt: null, grid: false, maskSoft: 0, projectName: '' };
+  let state = { surfaces: [], masks: [], sel: 0, selMask: null, selPt: null, grid: false, maskSoft: 0, projectName: '',
+    stageW: 1920, stageH: 1080 };
   let nextId = 1;
   const graveyard = new Map();
 
+  // Feste Output-Fläche (Bühne): alle Punkte liegen in Bühnenkoordinaten.
+  // Die Bühne wird im Editor und im Vollbild massstabsgetreu eingepasst, so stimmen Anzeige und Output überein.
+  let K = 1, OX = 0, OY = 0;
+  const S = p => [OX + p[0] * K, OY + p[1] * K];
+  const ptsStr = pts => pts.map(p => S(p).join(',')).join(' ');
+  function layout() {
+    const out = document.body.classList.contains('output');
+    const ax = out ? 0 : 334, ay = out ? 0 : 12;
+    const aw = Math.max(50, innerWidth - ax - (out ? 0 : 12)), ah = Math.max(50, innerHeight - ay * 2);
+    K = Math.min(aw / state.stageW, ah / state.stageH);
+    OX = ax + (aw - state.stageW * K) / 2; OY = ay + (ah - state.stageH * K) / 2;
+    stage.style.width = state.stageW + 'px'; stage.style.height = state.stageH + 'px';
+    stage.style.left = OX + 'px'; stage.style.top = OY + 'px'; stage.style.transform = `scale(${K})`;
+  }
+
   function defaultPts() {
-    const W = innerWidth, H = innerHeight;
-    const w = W * 0.45, h = H * 0.45, x = (W - w) / 2 + 150, y = (H - h) / 2;
+    const W = state.stageW, H = state.stageH;
+    const w = W * 0.45, h = H * 0.45, x = (W - w) / 2, y = (H - h) / 2;
     return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
   }
   function defaultMaskPts() {
-    const W = innerWidth, H = innerHeight;
-    const w = W * 0.04, h = H * 0.3, x = W / 2 + 130, y = H / 2 - h / 2;
+    const W = state.stageW, H = state.stageH;
+    const w = W * 0.04, h = H * 0.3, x = W / 2 + W * 0.12, y = H / 2 - h / 2;
     return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
   }
   function newSurface() {
@@ -321,7 +359,8 @@
         o.mtype = s.type !== 'none' ? s.type : (s.mtype || 'none');
         return o;
       }),
-      masks: state.masks, maskSoft: state.maskSoft, sel: state.sel
+      masks: state.masks, maskSoft: state.maskSoft, sel: state.sel,
+      stageW: state.stageW, stageH: state.stageH
     };
   }
   function applyData(raw, old) {
@@ -335,6 +374,12 @@
     if (!state.surfaces.length) state.surfaces = [newSurface()];
     state.masks = Array.isArray(raw.masks) ? JSON.parse(JSON.stringify(raw.masks)) : [];
     state.maskSoft = raw.maskSoft || 0;
+    if (raw.stageW && raw.stageH) { state.stageW = raw.stageW; state.stageH = raw.stageH; }
+    else { // ältere Projekte: Fensterkoordinaten auf die Bühne umrechnen
+      const sx = state.stageW / innerWidth, sy = state.stageH / innerHeight;
+      state.surfaces.forEach(s => { s.pts = s.pts.map(p => [p[0] * sx, p[1] * sy]); });
+      state.masks.forEach(m => { m.pts = m.pts.map(p => [p[0] * sx, p[1] * sy]); });
+    }
     state.sel = Math.min(raw.sel || 0, state.surfaces.length - 1);
     state.selMask = null; state.selPt = null;
     nextId = Math.max(nextId, ...state.surfaces.map(s => s.id)) + 1;
@@ -637,6 +682,7 @@
     maskLayer.style.filter = state.maskSoft ? `blur(${state.maskSoft}px)` : 'none';
   }
   function render() {
+    layout();
     const alive = new Set(state.surfaces.map(s => s.id));
     for (const [id, o] of els) if (!alive.has(id)) { o.root.remove(); els.delete(id); }
     const outputMode = document.body.classList.contains('output');
@@ -661,6 +707,8 @@
       o.txt.style.justifyContent = AL[s.thAlign] || 'center';
       o.txt.style.alignItems = AL[s.tvAlign] || 'center';
       o.txt.style.textAlign = s.thAlign || 'center';
+      o.txt.style.left = (s.tdx || 0) + '%'; o.txt.style.right = -(s.tdx || 0) + '%';
+      o.txt.style.top = (s.tdy || 0) + '%'; o.txt.style.bottom = -(s.tdy || 0) + '%';
       o.txt.style.fontFamily = `'${s.font}', Impact, sans-serif`;
       o.txt.style.fontSize = fs + 'px';
       o.txt.style.color = s.tcolor;
@@ -700,6 +748,7 @@
   const NS = 'http://www.w3.org/2000/svg';
   function mk(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
   function handles(pts, color, kind, idx) {
+    pts = pts.map(S); // Bühnen- in Bildschirmkoordinaten
     // Kantengriffe (Breite/Höhe)
     for (let k = 0; k < 4; k++) {
       const a = pts[k], b = pts[(k + 1) % 4], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
@@ -723,7 +772,7 @@
     ov.replaceChildren();
     state.surfaces.forEach((s, i) => {
       const selected = state.selMask === null && i === state.sel;
-      const poly = mk('polygon', { points: s.pts.map(p => p.join(',')).join(' '),
+      const poly = mk('polygon', { points: ptsStr(s.pts),
         fill: 'rgba(0,0,0,0)', stroke: selected ? '#b8e986' : 'rgba(255,255,255,.35)',
         'stroke-width': selected ? 2 : 1, 'stroke-dasharray': '8 6', 'pointer-events': 'all' });
       poly.style.cursor = 'move';
@@ -733,7 +782,7 @@
     });
     state.masks.forEach((m, i) => {
       const selected = state.selMask === i;
-      const poly = mk('polygon', { points: m.pts.map(p => p.join(',')).join(' '),
+      const poly = mk('polygon', { points: ptsStr(m.pts),
         fill: 'rgba(255,107,107,.12)', stroke: '#ff6b6b', 'stroke-width': selected ? 2 : 1,
         'stroke-dasharray': '6 5', 'pointer-events': 'all' });
       poly.style.cursor = 'move';
@@ -754,7 +803,7 @@
   }
   window.addEventListener('pointermove', e => {
     if (!drag) return;
-    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    const dx = (e.clientX - drag.sx) / K, dy = (e.clientY - drag.sy) / K;
     if (drag.pi === null) setPts(drag.orig.map(p => [p[0] + dx, p[1] + dy]));
     else if (drag.pi >= 10) setPts(moveEdge(drag.orig, drag.pi - 10, dx, dy));
     else { const pts = drag.orig.map(p => p.slice()); pts[drag.pi] = [drag.orig[drag.pi][0] + dx, drag.orig[drag.pi][1] + dy]; setPts(pts); }
@@ -783,6 +832,10 @@
     $('font').value = s.font; $('tsize').value = s.tsize; $('tcolor').value = s.tcolor;
     $('tglow').checked = s.tglow; $('tbold').checked = s.tbold; $('tanim').value = s.tanim;
     $('pos').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.h === s.thAlign && b.dataset.v === s.tvAlign));
+    $('tdx').value = s.tdx || 0; $('tdy').value = s.tdy || 0;
+    const rv = state.stageW + 'x' + state.stageH;
+    if (![...$('res').options].some(o => o.value === rv)) { const o = document.createElement('option'); o.value = rv; o.textContent = `${state.stageW} × ${state.stageH}`; $('res').appendChild(o); }
+    $('res').value = rv;
     $('soft').value = state.maskSoft;
     $('sellabel').innerHTML = state.selMask !== null
       ? `Ausgewählt: <b>Maske ${state.selMask + 1}</b>`
@@ -853,6 +906,19 @@
     b.onclick = () => { pushUndo(uniq()); cur().thAlign = h; cur().tvAlign = v; render(); save(); };
     $('pos').appendChild(b);
   });
+  $('tdx').oninput = e => { pushUndo('tdx'); cur().tdx = +e.target.value; render(); save(); };
+  $('tdy').oninput = e => { pushUndo('tdy'); cur().tdy = +e.target.value; render(); save(); };
+  $('tzero').onclick = () => { pushUndo(uniq()); cur().tdx = 0; cur().tdy = 0; render(); save(); };
+  $('res').onchange = e => {
+    const [nw, nh] = e.target.value.split('x').map(Number);
+    if (!nw || !nh) return;
+    pushUndo(uniq());
+    const sx = nw / state.stageW, sy = nh / state.stageH;
+    state.surfaces.forEach(s => { s.pts = s.pts.map(p => [p[0] * sx, p[1] * sy]); });
+    state.masks.forEach(m => { m.pts = m.pts.map(p => [p[0] * sx, p[1] * sy]); });
+    state.stageW = nw; state.stageH = nh;
+    render(); save();
+  };
   $('reset').onclick = () => { pushUndo(uniq()); setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
   $('undo').onclick = undo;
   $('redo').onclick = redo;
