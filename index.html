@@ -28,29 +28,50 @@
   .surface .txt.pulse { animation: pulse 2.2s ease-in-out infinite; }
   @keyframes flicker { 0%,19%,21%,23%,25%,54%,56%,100% { opacity:1 } 20%,24%,55% { opacity:.2 } 22% { opacity:.6 } }
   @keyframes pulse { 0%,100% { opacity:.55; transform:scale(.97) } 50% { opacity:1; transform:scale(1.03) } }
-  textarea { width:100%; background:#1a2327; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; resize:vertical; margin-bottom:6px; }
-  #presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  #presets button { text-align:left; font-size:13px; }
   #maskLayer { position:absolute; inset:0; width:100%; height:100%; z-index:1000; pointer-events:none; }
   #ov { position:fixed; inset:0; width:100%; height:100%; }
-  #panel { position:fixed; left:12px; top:12px; width:290px; max-height:calc(100% - 24px); overflow:auto; background:var(--panel);
-    border:1px solid var(--line); border-radius:12px; padding:14px; z-index:5; }
+
+  #panel { position:fixed; left:12px; top:12px; width:310px; max-height:calc(100% - 24px); overflow:auto; background:var(--panel);
+    border:1px solid var(--line); border-radius:12px; z-index:5; }
   body.output #panel, body.output #ov { display:none; }
   body.output { cursor:none; }
-  h1 { font-size:15px; margin:0 0 10px; letter-spacing:.04em; }
-  h2 { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.1em; margin:14px 0 6px; }
+  #top { position:sticky; top:0; background:var(--panel); padding:12px 12px 8px; border-bottom:1px solid var(--line); z-index:2; }
+  h1 { font-size:14px; margin:0 0 8px; letter-spacing:.06em; display:flex; justify-content:space-between; align-items:baseline; }
+  h1 small { color:var(--mut); font-weight:400; letter-spacing:0; font-size:11px; }
+  #sellabel { font-size:12px; color:var(--mut); margin-top:6px; }
+  #sellabel b { color:var(--acc); }
+  details.sec { border-bottom:1px solid var(--line); }
+  details.sec:last-child { border-bottom:0; }
+  details.sec > summary { padding:11px 14px; cursor:pointer; font-weight:600; font-size:13px; list-style:none; display:flex; justify-content:space-between; user-select:none; }
+  details.sec > summary::-webkit-details-marker { display:none; }
+  details.sec > summary::after { content:'+'; color:var(--mut); font-weight:400; }
+  details.sec[open] > summary::after { content:'–'; }
+  details.sec[open] > summary { color:var(--acc); }
+  .body { padding:2px 14px 14px; }
   button, .btn, select { background:#1a2327; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; cursor:pointer; }
   button:hover, .btn:hover, select:hover { border-color:var(--acc); }
+  button:disabled { opacity:.35; cursor:default; border-color:var(--line); }
   button.primary, .btn.primary { background:var(--acc); color:#10200a; border-color:var(--acc); font-weight:600; }
+  button.danger { color:var(--red); }
   .row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; align-items:center; }
-  .row > * { flex:1; text-align:center; }
+  .row > * { flex:1; text-align:center; min-width:0; }
   label.c { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
   input[type=range] { width:100%; accent-color:var(--acc); }
   input[type=color] { width:44px; height:34px; flex:0 0 44px; padding:2px; background:#1a2327; border:1px solid var(--line); border-radius:8px; }
-  .sl { display:flex; align-items:center; gap:8px; margin-bottom:4px; } .sl span { width:78px; color:var(--mut); }
+  input[type=text], textarea { width:100%; background:#1a2327; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; }
+  textarea { resize:vertical; margin-bottom:6px; }
+  .sl { display:flex; align-items:center; gap:8px; margin-bottom:4px; } .sl span { width:78px; color:var(--mut); flex:0 0 78px; }
   .item { padding:7px 9px; border:1px solid var(--line); border-radius:8px; margin-bottom:5px; cursor:pointer; display:flex; justify-content:space-between; gap:6px; }
   .item.sel { border-color:var(--acc); background:#18240f; }
-  .hint { color:var(--mut); font-size:12px; margin-top:10px; }
+  .item small { color:var(--mut); }
+  .proj { display:flex; align-items:center; gap:6px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; margin-bottom:5px; }
+  .proj .n { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj .n small { display:block; color:var(--mut); font-size:11px; }
+  .proj button { padding:5px 8px; font-size:12px; }
+  #presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  #presets button { text-align:left; font-size:13px; }
+  .hint { color:var(--mut); font-size:12px; margin-top:8px; }
+  #status { color:var(--acc); font-size:12px; min-height:16px; margin-top:6px; }
   kbd { background:#1a2327; border:1px solid var(--line); border-radius:4px; padding:0 4px; }
   input[type=file] { display:none; }
 </style>
@@ -62,128 +83,191 @@
 <svg id="ov"></svg>
 
 <div id="panel">
-  <h1>FENSTER-MAPPER</h1>
-
-  <div class="row">
-    <label class="btn primary" for="file">Video / Bild wählen</label>
-    <input id="file" type="file" accept="video/*,image/*">
-  </div>
-  <div class="row">
-    <button id="fs" class="primary">Output Vollbild (F)</button>
-  </div>
-
-  <h2>Flächen</h2>
-  <div id="list"></div>
-  <div class="row">
-    <button id="add">+ Neue Fläche</button>
-    <button id="del">Löschen</button>
+  <div id="top">
+    <h1>FENSTER-MAPPER <small id="pname"></small></h1>
+    <div class="row">
+      <button id="undo" title="Zurück (Strg+Z)">↶ Zurück</button>
+      <button id="redo" title="Wiederholen (Strg+Y)">↷ Vor</button>
+    </div>
+    <div class="row">
+      <label class="btn primary" for="file">Video / Bild wählen</label>
+      <input id="file" type="file" accept="video/*,image/*">
+      <button id="fs" class="primary">Output (F)</button>
+    </div>
+    <div id="sellabel"></div>
   </div>
 
-  <h2>Ausgewählte Fläche</h2>
-  <div class="sl"><span>Helligkeit</span><input id="br" type="range" min="0" max="150" value="100"></div>
-  <div class="sl"><span>Deckkraft</span><input id="op" type="range" min="0" max="100" value="100"></div>
-  <div class="row">
-    <label class="c"><input id="vis" type="checkbox" checked> sichtbar</label>
-    <label class="c"><input id="loop" type="checkbox" checked> Loop</label>
-    <label class="c"><input id="mute" type="checkbox" checked> stumm</label>
-  </div>
-  <div class="row">
-    <button id="play">Play / Pause (Leertaste)</button>
-  </div>
-  <div class="row">
-    <button id="reset">Ecken zurücksetzen</button>
-  </div>
+  <details class="sec" data-id="flaechen" open>
+    <summary>Flächen</summary>
+    <div class="body">
+      <div id="list"></div>
+      <div class="row">
+        <button id="add">+ Neue Fläche</button>
+        <button id="del" class="danger">Löschen</button>
+      </div>
+      <div class="sl"><span>Helligkeit</span><input id="br" type="range" min="0" max="150" value="100"></div>
+      <div class="sl"><span>Deckkraft</span><input id="op" type="range" min="0" max="100" value="100"></div>
+      <div class="row">
+        <label class="c"><input id="vis" type="checkbox" checked> sichtbar</label>
+      </div>
+      <div class="row">
+        <button id="reset">Rahmen zurücksetzen</button>
+        <button id="gridBtn">Testraster (G)</button>
+      </div>
+    </div>
+  </details>
 
-  <h2>Effekt</h2>
-  <div class="row">
-    <select id="fx">
-      <option value="none">Kein Effekt</option>
-      <option value="scan">Scan-Linie</option>
-      <option value="bars">Balken</option>
-      <option value="wave">Wellen</option>
-      <option value="radar">Radar</option>
-      <option value="rings">Ringe</option>
-      <option value="aurora">Aurora</option>
-      <option value="constellation">Sternbild</option>
-      <option value="pixelrain">Pixel-Regen</option>
-      <option value="web">Spinnennetz</option>
-      <option value="bats">Fledermäuse</option>
-      <option value="fog">Nebel</option>
-    </select>
-    <input id="fxc" type="color" value="#b8e986" title="Farbe">
-  </div>
-  <div class="sl"><span>Tempo</span><input id="fxs" type="range" min="10" max="300" value="100"></div>
+  <details class="sec" data-id="medien">
+    <summary>Medien</summary>
+    <div class="body">
+      <div class="row">
+        <button id="play">Play / Pause</button>
+      </div>
+      <div class="row">
+        <label class="c"><input id="loop" type="checkbox" checked> Loop</label>
+        <label class="c"><input id="mute" type="checkbox" checked> stumm</label>
+      </div>
+      <div class="hint">Die Datei wählst du oben mit „Video / Bild wählen“.</div>
+    </div>
+  </details>
 
-  <h2>Text</h2>
-  <textarea id="txt" rows="2" placeholder="Text eingeben (leer = kein Text)"></textarea>
-  <div class="row">
-    <select id="font">
-      <option value="Creepster">Creepster (Halloween)</option>
-      <option value="Nosifer">Nosifer (tropfend)</option>
-      <option value="Eater">Eater (Horror)</option>
-      <option value="Butcherman">Butcherman</option>
-      <option value="Metal Mania">Metal Mania</option>
-      <option value="Rubik Wet Paint">Rubik Wet Paint</option>
-      <option value="Pirata One">Pirata One (Fraktur)</option>
-      <option value="UnifrakturCook">UnifrakturCook (Gotisch)</option>
-      <option value="Special Elite">Special Elite (Schreibmaschine)</option>
-      <option value="Permanent Marker">Permanent Marker</option>
-      <option value="Impact">Impact</option>
-      <option value="Arial Black">Arial Black</option>
-      <option value="Georgia">Georgia (Serif)</option>
-      <option value="Courier New">Courier New</option>
-      <option value="Brush Script MT">Brush Script</option>
-      <option value="Comic Sans MS">Comic Sans</option>
-    </select>
-  </div>
-  <div class="sl"><span>Grösse</span><input id="tsize" type="range" min="3" max="80" value="20"></div>
-  <div class="row">
-    <input id="tcolor" type="color" value="#ff7a1a" title="Textfarbe">
-    <label class="c"><input id="tglow" type="checkbox" checked> Glühen</label>
-    <label class="c"><input id="tbold" type="checkbox"> fett</label>
-  </div>
-  <div class="row">
-    <select id="tanim">
-      <option value="none">Ohne Animation</option>
-      <option value="flicker">Flackern</option>
-      <option value="pulse">Pulsieren</option>
-    </select>
-  </div>
+  <details class="sec" data-id="effekt">
+    <summary>Effekt</summary>
+    <div class="body">
+      <div class="row">
+        <select id="fx">
+          <option value="none">Kein Effekt</option>
+          <option value="scan">Scan-Linie</option>
+          <option value="bars">Balken</option>
+          <option value="wave">Wellen</option>
+          <option value="radar">Radar</option>
+          <option value="rings">Ringe</option>
+          <option value="aurora">Aurora</option>
+          <option value="constellation">Sternbild</option>
+          <option value="pixelrain">Pixel-Regen</option>
+          <option value="web">Spinnennetz</option>
+          <option value="bats">Fledermäuse</option>
+          <option value="fog">Nebel</option>
+        </select>
+        <input id="fxc" type="color" value="#b8e986" title="Farbe">
+      </div>
+      <div class="sl"><span>Tempo</span><input id="fxs" type="range" min="10" max="300" value="100"></div>
+    </div>
+  </details>
 
-  <h2>Halloween-Vorlagen</h2>
-  <div id="presets"></div>
-  <div class="hint">Vorlagen gelten für die ausgewählte Fläche und lassen sich danach anpassen.</div>
+  <details class="sec" data-id="text">
+    <summary>Text</summary>
+    <div class="body">
+      <textarea id="txt" rows="2" placeholder="Text eingeben (leer = kein Text)"></textarea>
+      <div class="row">
+        <select id="font">
+          <option value="Creepster">Creepster (Halloween)</option>
+          <option value="Nosifer">Nosifer (tropfend)</option>
+          <option value="Eater">Eater (Horror)</option>
+          <option value="Butcherman">Butcherman</option>
+          <option value="Metal Mania">Metal Mania</option>
+          <option value="Rubik Wet Paint">Rubik Wet Paint</option>
+          <option value="Pirata One">Pirata One (Fraktur)</option>
+          <option value="UnifrakturCook">UnifrakturCook (Gotisch)</option>
+          <option value="Special Elite">Special Elite (Schreibmaschine)</option>
+          <option value="Permanent Marker">Permanent Marker</option>
+          <option value="Impact">Impact</option>
+          <option value="Arial Black">Arial Black</option>
+          <option value="Georgia">Georgia (Serif)</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Brush Script MT">Brush Script</option>
+          <option value="Comic Sans MS">Comic Sans</option>
+        </select>
+      </div>
+      <div class="sl"><span>Grösse</span><input id="tsize" type="range" min="3" max="80" value="20"></div>
+      <div class="row">
+        <input id="tcolor" type="color" value="#ff7a1a" title="Textfarbe">
+        <label class="c"><input id="tglow" type="checkbox" checked> Glühen</label>
+        <label class="c"><input id="tbold" type="checkbox"> fett</label>
+      </div>
+      <div class="row">
+        <select id="tanim">
+          <option value="none">Ohne Animation</option>
+          <option value="flicker">Flackern</option>
+          <option value="pulse">Pulsieren</option>
+        </select>
+      </div>
+    </div>
+  </details>
 
-  <h2>Masken (Rahmen abdecken)</h2>
-  <div class="row">
-    <button id="addMask">+ Maske</button>
-    <button id="delMask">Maske löschen</button>
-  </div>
-  <div class="sl"><span>Kante weich</span><input id="soft" type="range" min="0" max="20" value="0"></div>
+  <details class="sec" data-id="vorlagen">
+    <summary>Halloween-Vorlagen</summary>
+    <div class="body">
+      <div id="presets"></div>
+      <div class="hint">Die Vorlage wird auf die ausgewählte Fläche angewendet und lässt sich danach anpassen.</div>
+    </div>
+  </details>
 
-  <h2>Einmessen</h2>
-  <div class="row"><button id="gridBtn">Testraster ein/aus (G)</button></div>
+  <details class="sec" data-id="masken">
+    <summary>Masken</summary>
+    <div class="body">
+      <div class="row">
+        <button id="addMask">+ Maske</button>
+        <button id="delMask" class="danger">Maske löschen</button>
+      </div>
+      <div class="sl"><span>Kante weich</span><input id="soft" type="range" min="0" max="20" value="0"></div>
+      <div class="hint">Masken sind schwarze Vierecke, die Fensterrahmen oder Sprossen abdecken. Im Editor sind sie rot umrandet.</div>
+    </div>
+  </details>
 
-  <div class="hint">
-    Ecken mit der Maus ziehen, um den Rahmen ans Fenster anzupassen. Innerhalb der Fläche ziehen verschiebt sie.
-    Mit <kbd>←↑→↓</kbd> feinjustieren (<kbd>Shift</kbd> = grössere Schritte).
-    <kbd>H</kbd> blendet die Bedienung aus/ein.<br><br>
-    <b>Masken</b> sind schwarze Vierecke, die du über Fensterrahmen oder Sprossen legst. Sie erscheinen im Editor rot umrandet.<br><br>
-    Für den Beamer: Browserfenster auf den Beamer ziehen, dann <kbd>F</kbd>. Mit <kbd>Esc</kbd> zurück.<br><br>
-    Eckpunkte, Masken und Effekte werden automatisch gespeichert, die Mediendatei muss nach einem Neustart neu gewählt werden.
-  </div>
+  <details class="sec" data-id="projekt">
+    <summary>Projekt</summary>
+    <div class="body">
+      <input id="pn" type="text" placeholder="Projektname">
+      <div class="row" style="margin-top:6px">
+        <button id="psave" class="primary">Speichern</button>
+        <button id="pnew">Neu</button>
+      </div>
+      <div id="plist"></div>
+      <div class="row">
+        <button id="pexport">Als Datei sichern</button>
+        <label class="btn" for="pimport">Datei öffnen</label>
+        <input id="pimport" type="file" accept=".json,application/json">
+      </div>
+      <div id="status"></div>
+      <div class="hint">Gespeicherte Projekte bleiben in diesem Browser, inklusive Video und Bild. Die Datei enthält nur Einstellungen, Medien wählst du danach neu.</div>
+    </div>
+  </details>
+
+  <details class="sec" data-id="hilfe">
+    <summary>Hilfe</summary>
+    <div class="body">
+      <div class="hint" style="margin-top:0">
+        <b>Rahmen anpassen:</b> Grüne Punkte (Ecken) ziehen, quadratische Griffe an den Kanten ändern Breite und Höhe. In die Fläche ziehen verschiebt sie.<br><br>
+        <b>Feinjustieren:</b> Punkt oder Kante anklicken, dann <kbd>←↑→↓</kbd> (<kbd>Shift</kbd> = grössere Schritte).<br><br>
+        <b>Tasten:</b> <kbd>F</kbd> Vollbild, <kbd>H</kbd> Menü aus/ein, <kbd>G</kbd> Raster, <kbd>Leertaste</kbd> Play/Pause, <kbd>Strg+Z</kbd> zurück, <kbd>Strg+Y</kbd> vor.<br><br>
+        <b>Beamer:</b> Browserfenster auf den Beamer ziehen, dann <kbd>F</kbd>. Mit <kbd>Esc</kbd> zurück.
+      </div>
+    </div>
+  </details>
 </div>
 
 <script>
 (() => {
   const STORE = 'fenster-mapper-v1';
+  const PROJ = 'fenster-mapper-projects';
+  const OPEN = 'fenster-mapper-open';
   const stage = document.getElementById('stage');
   const ov = document.getElementById('ov');
   const maskLayer = document.getElementById('maskLayer');
   const $ = id => document.getElementById(id);
 
-  let state = { surfaces: [], masks: [], sel: 0, selMask: null, selPt: null, grid: false, maskSoft: 0 };
+  const SURF_DEFAULTS = { type: 'none', url: null, fileName: '', mtype: 'none', w: 1920, h: 1080,
+    brightness: 100, opacity: 100, visible: true, loop: true, muted: true,
+    fx: 'none', fxColor: '#b8e986', fxSpeed: 100,
+    txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none' };
+  const KEYS = ['id','name','fileName','mtype','w','h','pts','brightness','opacity','visible','loop','muted',
+    'fx','fxColor','fxSpeed','txt','font','tsize','tcolor','tglow','tbold','tanim'];
+  const MEDIA_KEYS = ['url','type','fileName','mtype','w','h'];
+
+  let state = { surfaces: [], masks: [], sel: 0, selMask: null, selPt: null, grid: false, maskSoft: 0, projectName: '' };
   let nextId = 1;
+  const graveyard = new Map();
 
   function defaultPts() {
     const W = innerWidth, H = innerHeight;
@@ -196,40 +280,120 @@
     return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
   }
   function newSurface() {
-    return { id: nextId++, name: 'Fläche ' + (state.surfaces.length + 1), type: 'none', url: null, fileName: '',
-      w: 1920, h: 1080, pts: defaultPts(), brightness: 100, opacity: 100, visible: true, loop: true, muted: true,
-      fx: 'none', fxColor: '#b8e986', fxSpeed: 100,
-      txt: '', font: 'Creepster', tsize: 20, tcolor: '#ff7a1a', tglow: true, tbold: false, tanim: 'none' };
+    return Object.assign({}, SURF_DEFAULTS, { id: nextId++, name: 'Fläche ' + (state.surfaces.length + 1), pts: defaultPts() });
   }
   const cur = () => state.surfaces[state.sel];
   const getPts = () => state.selMask !== null ? state.masks[state.selMask].pts : cur().pts;
   const setPts = p => { if (state.selMask !== null) state.masks[state.selMask].pts = p; else cur().pts = p; };
 
-  // ---------- Speichern / Laden ----------
-  function save() {
+  // ---------- IndexedDB für Medien ----------
+  const idb = new Promise((res, rej) => {
     try {
-      const data = state.surfaces.map(s => ({ id:s.id, name:s.name, fileName:s.fileName, w:s.w, h:s.h, pts:s.pts,
-        brightness:s.brightness, opacity:s.opacity, visible:s.visible, loop:s.loop, muted:s.muted,
-        fx:s.fx, fxColor:s.fxColor, fxSpeed:s.fxSpeed,
-        txt:s.txt, font:s.font, tsize:s.tsize, tcolor:s.tcolor, tglow:s.tglow, tbold:s.tbold, tanim:s.tanim }));
-      localStorage.setItem(STORE, JSON.stringify({ surfaces:data, sel:state.sel, masks:state.masks, maskSoft:state.maskSoft }));
-    } catch (e) {}
+      const r = indexedDB.open('fenster-mapper-db', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('media');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  });
+  const idbPut = (k, v) => idb.then(db => new Promise((res, rej) => {
+    const tx = db.transaction('media', 'readwrite'); tx.objectStore('media').put(v, k);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  })).catch(() => {});
+  const idbGet = k => idb.then(db => new Promise((res, rej) => {
+    const r = db.transaction('media').objectStore('media').get(k);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  })).catch(() => undefined);
+  const idbDel = k => idb.then(db => new Promise((res, rej) => {
+    const tx = db.transaction('media', 'readwrite'); tx.objectStore('media').delete(k);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  })).catch(() => {});
+
+  // ---------- Serialisieren / Anwenden ----------
+  function serialize() {
+    return {
+      surfaces: state.surfaces.map(s => {
+        const o = {}; KEYS.forEach(k => { o[k] = s[k]; });
+        o.mtype = s.type !== 'none' ? s.type : (s.mtype || 'none');
+        return o;
+      }),
+      masks: state.masks, maskSoft: state.maskSoft, sel: state.sel
+    };
+  }
+  function applyData(raw, old) {
+    state.surfaces = raw.surfaces.map(d => {
+      const s = Object.assign({}, SURF_DEFAULTS, JSON.parse(JSON.stringify(d)));
+      s.type = 'none'; s.url = null;
+      const o = (old && old.get(s.id)) || graveyard.get(s.id);
+      if (o) MEDIA_KEYS.forEach(k => { s[k] = o[k]; });
+      return s;
+    });
+    if (!state.surfaces.length) state.surfaces = [newSurface()];
+    state.masks = Array.isArray(raw.masks) ? JSON.parse(JSON.stringify(raw.masks)) : [];
+    state.maskSoft = raw.maskSoft || 0;
+    state.sel = Math.min(raw.sel || 0, state.surfaces.length - 1);
+    state.selMask = null; state.selPt = null;
+    nextId = Math.max(nextId, ...state.surfaces.map(s => s.id)) + 1;
+  }
+  function clearEls() { for (const o of els.values()) o.root.remove(); els.clear(); }
+  function reattachMedia() {
+    state.surfaces.forEach(s => { if (s.url && s.type !== 'none') { const o = els.get(s.id); if (!o || !o.media) attachMedia(s); } });
+  }
+  function restoreMedia(keyOf) {
+    state.surfaces.forEach(s => {
+      if (!s.fileName || !s.mtype || s.mtype === 'none') return;
+      idbGet(keyOf(s)).then(blob => {
+        if (!blob) return;
+        s.url = URL.createObjectURL(blob); s.type = s.mtype;
+        idbPut('work:' + s.id, blob);
+        attachMedia(s); render();
+      });
+    });
+  }
+
+  // ---------- Autospeichern ----------
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(Object.assign(serialize(), { projectName: state.projectName }))); } catch (e) {}
   }
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE) || 'null');
       if (raw && raw.surfaces && raw.surfaces.length) {
-        state.surfaces = raw.surfaces.map(s => Object.assign({ type:'none', url:null, fx:'none', fxColor:'#b8e986', fxSpeed:100,
-          txt:'', font:'Creepster', tsize:20, tcolor:'#ff7a1a', tglow:true, tbold:false, tanim:'none' }, s));
-        state.sel = Math.min(raw.sel || 0, state.surfaces.length - 1);
-        state.masks = Array.isArray(raw.masks) ? raw.masks : [];
-        state.maskSoft = raw.maskSoft || 0;
-        nextId = Math.max(...state.surfaces.map(s => s.id)) + 1;
+        applyData(raw); state.projectName = raw.projectName || '';
+        restoreMedia(s => 'work:' + s.id);
         return;
       }
     } catch (e) {}
     state.surfaces = [newSurface()];
   }
+
+  // ---------- Zurück / Vor ----------
+  const undoStack = [], redoStack = [];
+  let lastKey = '', lastT = 0;
+  const snap = () => JSON.stringify(serialize());
+  function pushUndo(key) {
+    const now = Date.now();
+    if (key && key === lastKey && now - lastT < 900) { lastT = now; return; }
+    lastKey = key; lastT = now;
+    undoStack.push(snap()); if (undoStack.length > 60) undoStack.shift();
+    redoStack.length = 0; updateUndoButtons();
+  }
+  const uniq = () => 'u' + Date.now() + Math.random();
+  function restoreSnap(str) {
+    const old = new Map(state.surfaces.map(s => [s.id, s]));
+    applyData(JSON.parse(str), old);
+    reattachMedia();
+  }
+  function undo() {
+    if (!undoStack.length) return;
+    redoStack.push(snap()); restoreSnap(undoStack.pop()); lastKey = '';
+    render(); save(); updateUndoButtons();
+  }
+  function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(snap()); restoreSnap(redoStack.pop()); lastKey = '';
+    render(); save(); updateUndoButtons();
+  }
+  function updateUndoButtons() { $('undo').disabled = !undoStack.length; $('redo').disabled = !redoStack.length; }
 
   // ---------- Perspektivische Verzerrung ----------
   function solve(A, b) {
@@ -262,6 +426,17 @@
     }
     const [a, bb, c, d, e, f, g, hh] = solve(A, b);
     return `matrix3d(${a},${d},0,${g},${bb},${e},0,${hh},0,0,1,0,${c},${f},0,1)`;
+  }
+  // Kante k (zwischen Punkt k und k+1) entlang ihrer Normalen verschieben = Breite/Höhe ändern
+  function moveEdge(pts, k, dx, dy) {
+    const a = pts[k], b = pts[(k + 1) % 4];
+    const ex = b[0] - a[0], ey = b[1] - a[1], len = Math.hypot(ex, ey);
+    if (!len) return pts.map(p => p.slice());
+    const nx = -ey / len, ny = ex / len, d = dx * nx + dy * ny;
+    const out = pts.map(p => p.slice());
+    out[k] = [a[0] + nx * d, a[1] + ny * d];
+    out[(k + 1) % 4] = [b[0] + nx * d, b[1] + ny * d];
+    return out;
   }
 
   // ---------- Effekte ----------
@@ -375,7 +550,8 @@
         vx: w * (0.08 + Math.random() * 0.12) * (Math.random() < 0.5 ? -1 : 1), s: h * (0.025 + Math.random() * 0.03), ph: Math.random() * 6.28 }));
       for (const b of st.b) {
         b.x += b.vx * st.dt;
-        if (b.x > w + b.s * 3) b.x = -b.s * 3; if (b.x < -b.s * 3) b.x = w + b.s * 3;
+        if (b.x > w + b.s * 3) b.x = -b.s * 3;
+        if (b.x < -b.s * 3) b.x = w + b.s * 3;
         const y = b.y + Math.sin(t * 1.5 + b.ph) * h * 0.04, flap = Math.sin(t * 9 + b.ph);
         c.save(); c.translate(b.x, y); c.scale(b.s * (b.vx < 0 ? -1 : 1), b.s);
         c.fillStyle = rgba(col, 1); c.shadowColor = rgba(col, 0.9); c.shadowBlur = b.s * 0.8;
@@ -422,7 +598,7 @@
   };
 
   // ---------- Rendern ----------
-  const els = new Map(); // id -> {root, ph, canvas, grid, media}
+  const els = new Map(); // id -> {root, ph, canvas, txt, grid, media}
   function ensureEl(s) {
     let o = els.get(s.id);
     if (o) return o;
@@ -469,6 +645,9 @@
       o.root.style.filter = `brightness(${s.brightness / 100})`;
       o.root.style.zIndex = i;
       o.ph.style.display = s.type === 'none' && s.fx === 'none' && !s.txt && !outputMode ? 'flex' : 'none';
+      o.ph.textContent = s.name;
+      o.grid.style.display = state.grid ? 'block' : 'none';
+      if (o.media && s.type === 'video') { o.media.loop = s.loop; o.media.muted = s.muted; }
       // Text
       const fs = s.h * s.tsize / 100;
       o.txt.textContent = s.txt;
@@ -479,9 +658,6 @@
       o.txt.style.fontWeight = s.tbold ? '800' : '400';
       o.txt.style.textShadow = s.tglow ? `0 0 ${fs * 0.06}px ${s.tcolor}, 0 0 ${fs * 0.2}px ${s.tcolor}, 0 0 ${fs * 0.4}px ${s.tcolor}` : 'none';
       o.txt.className = 'txt' + (s.tanim !== 'none' ? ' ' + s.tanim : '');
-      o.ph.textContent = s.name;
-      o.grid.style.display = state.grid ? 'block' : 'none';
-      if (o.media && s.type === 'video') { o.media.loop = s.loop; o.media.muted = s.muted; }
       // Effekt-Canvas
       if (s.fx === 'none') { o.canvas.style.display = 'none'; }
       else {
@@ -511,10 +687,21 @@
   }
   requestAnimationFrame(tick);
 
-  // ---------- Overlay mit Eckpunkten ----------
+  // ---------- Overlay mit Ecken- und Kantengriffen ----------
   const NS = 'http://www.w3.org/2000/svg';
   function mk(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
   function handles(pts, color, kind, idx) {
+    // Kantengriffe (Breite/Höhe)
+    for (let k = 0; k < 4; k++) {
+      const a = pts[k], b = pts[(k + 1) % 4], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const on = state.selPt === 10 + k, sz = on ? 15 : 12;
+      const r = mk('rect', { x: mx - sz / 2, y: my - sz / 2, width: sz, height: sz, rx: 3,
+        fill: on ? '#fff' : '#10200a', stroke: color, 'stroke-width': 2 });
+      r.style.cursor = (k % 2 === 0) ? 'ns-resize' : 'ew-resize';
+      r.addEventListener('pointerdown', e => startDrag(e, kind, idx, 10 + k));
+      ov.appendChild(r);
+    }
+    // Eckpunkte
     pts.forEach((p, k) => {
       const c = mk('circle', { cx: p[0], cy: p[1], r: state.selPt === k ? 11 : 9,
         fill: state.selPt === k ? '#fff' : color, stroke: '#10200a', 'stroke-width': 2 });
@@ -552,6 +739,7 @@
     e.preventDefault(); e.stopPropagation();
     if (kind === 's') { state.sel = idx; state.selMask = null; } else { state.selMask = idx; }
     state.selPt = pi;
+    pushUndo(uniq());
     drag = { pi, sx: e.clientX, sy: e.clientY, orig: getPts().map(p => p.slice()) };
     render();
   }
@@ -559,7 +747,8 @@
     if (!drag) return;
     const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
     if (drag.pi === null) setPts(drag.orig.map(p => [p[0] + dx, p[1] + dy]));
-    else { const pts = getPts().map(p => p.slice()); pts[drag.pi] = [drag.orig[drag.pi][0] + dx, drag.orig[drag.pi][1] + dy]; setPts(pts); }
+    else if (drag.pi >= 10) setPts(moveEdge(drag.orig, drag.pi - 10, dx, dy));
+    else { const pts = drag.orig.map(p => p.slice()); pts[drag.pi] = [drag.orig[drag.pi][0] + dx, drag.orig[drag.pi][1] + dy]; setPts(pts); }
     render();
   });
   window.addEventListener('pointerup', () => { if (drag) { drag = null; save(); } });
@@ -570,7 +759,7 @@
     state.surfaces.forEach((s, i) => {
       const d = document.createElement('div'); d.className = 'item' + (state.selMask === null && i === state.sel ? ' sel' : '');
       const a = document.createElement('span'); a.textContent = s.name;
-      const b = document.createElement('span'); b.style.color = 'var(--mut)';
+      const b = document.createElement('small');
       b.textContent = s.fileName ? s.fileName.slice(0, 18) : '–';
       d.append(a, b); d.onclick = () => { state.sel = i; state.selMask = null; state.selPt = null; render(); };
       l.appendChild(d);
@@ -585,46 +774,69 @@
     $('font').value = s.font; $('tsize').value = s.tsize; $('tcolor').value = s.tcolor;
     $('tglow').checked = s.tglow; $('tbold').checked = s.tbold; $('tanim').value = s.tanim;
     $('soft').value = state.maskSoft;
+    $('sellabel').innerHTML = state.selMask !== null
+      ? `Ausgewählt: <b>Maske ${state.selMask + 1}</b>`
+      : `Ausgewählt: <b>${s.name}</b>${s.fileName ? ' · ' + s.fileName.slice(0, 22) : ''}`;
+    $('pname').textContent = state.projectName || '';
+    if (document.activeElement !== $('pn')) $('pn').value = state.projectName || '';
   }
+  // Menü-Abschnitte merken
+  (() => {
+    let open = null;
+    try { open = JSON.parse(localStorage.getItem(OPEN) || 'null'); } catch (e) {}
+    document.querySelectorAll('details.sec').forEach(d => {
+      if (open) d.open = open.includes(d.dataset.id);
+      d.addEventListener('toggle', () => {
+        const ids = [...document.querySelectorAll('details.sec')].filter(x => x.open).map(x => x.dataset.id);
+        try { localStorage.setItem(OPEN, JSON.stringify(ids)); } catch (e) {}
+      });
+    });
+  })();
 
   $('file').addEventListener('change', e => {
     const f = e.target.files[0]; if (!f) return;
     if (state.selMask !== null) state.selMask = null;
     const s = cur();
-    if (s.url) URL.revokeObjectURL(s.url);
     s.url = URL.createObjectURL(f); s.fileName = f.name;
-    s.type = f.type.startsWith('image') ? 'image' : 'video';
+    s.type = f.type.startsWith('image') ? 'image' : 'video'; s.mtype = s.type;
+    idbPut('work:' + s.id, f);
     attachMedia(s); render(); save();
     e.target.value = '';
   });
-  $('add').onclick = () => { state.surfaces.push(newSurface()); state.sel = state.surfaces.length - 1; state.selMask = null; render(); save(); };
+  $('add').onclick = () => { pushUndo(uniq()); state.surfaces.push(newSurface()); state.sel = state.surfaces.length - 1; state.selMask = null; render(); save(); };
   $('del').onclick = () => {
+    pushUndo(uniq());
+    graveyard.set(cur().id, cur());
     if (state.surfaces.length <= 1) { const s = newSurface(); state.surfaces = [s]; state.sel = 0; }
     else { state.surfaces.splice(state.sel, 1); state.sel = Math.max(0, state.sel - 1); }
     state.selMask = null; render(); save();
   };
-  $('addMask').onclick = () => { state.masks.push({ pts: defaultMaskPts() }); state.selMask = state.masks.length - 1; state.selPt = null; render(); save(); };
+  $('addMask').onclick = () => { pushUndo(uniq()); state.masks.push({ pts: defaultMaskPts() }); state.selMask = state.masks.length - 1; state.selPt = null; render(); save(); };
   $('delMask').onclick = () => {
-    if (state.selMask === null) { if (state.masks.length) state.masks.pop(); }
-    else { state.masks.splice(state.selMask, 1); }
+    if (!state.masks.length) return;
+    pushUndo(uniq());
+    if (state.selMask === null) state.masks.pop(); else state.masks.splice(state.selMask, 1);
     state.selMask = null; state.selPt = null; render(); save();
   };
-  $('soft').oninput = e => { state.maskSoft = +e.target.value; render(); save(); };
-  $('br').oninput = e => { cur().brightness = +e.target.value; render(); save(); };
-  $('op').oninput = e => { cur().opacity = +e.target.value; render(); save(); };
-  $('vis').onchange = e => { cur().visible = e.target.checked; render(); save(); };
-  $('loop').onchange = e => { cur().loop = e.target.checked; render(); save(); };
-  $('mute').onchange = e => { cur().muted = e.target.checked; render(); save(); };
-  $('fx').onchange = e => { cur().fx = e.target.value; render(); save(); };
-  $('fxc').oninput = e => { cur().fxColor = e.target.value; save(); };
-  $('fxs').oninput = e => { cur().fxSpeed = +e.target.value; save(); };
-  $('txt').oninput = e => { cur().txt = e.target.value; render(); save(); };
-  $('font').onchange = e => { cur().font = e.target.value; render(); save(); };
-  $('tsize').oninput = e => { cur().tsize = +e.target.value; render(); save(); };
-  $('tcolor').oninput = e => { cur().tcolor = e.target.value; render(); save(); };
-  $('tglow').onchange = e => { cur().tglow = e.target.checked; render(); save(); };
-  $('tbold').onchange = e => { cur().tbold = e.target.checked; render(); save(); };
-  $('tanim').onchange = e => { cur().tanim = e.target.value; render(); save(); };
+  $('soft').oninput = e => { pushUndo('soft'); state.maskSoft = +e.target.value; render(); save(); };
+  $('br').oninput = e => { pushUndo('br'); cur().brightness = +e.target.value; render(); save(); };
+  $('op').oninput = e => { pushUndo('op'); cur().opacity = +e.target.value; render(); save(); };
+  $('vis').onchange = e => { pushUndo(uniq()); cur().visible = e.target.checked; render(); save(); };
+  $('loop').onchange = e => { pushUndo(uniq()); cur().loop = e.target.checked; render(); save(); };
+  $('mute').onchange = e => { pushUndo(uniq()); cur().muted = e.target.checked; render(); save(); };
+  $('fx').onchange = e => { pushUndo(uniq()); cur().fx = e.target.value; render(); save(); };
+  $('fxc').oninput = e => { pushUndo('fxc'); cur().fxColor = e.target.value; save(); };
+  $('fxs').oninput = e => { pushUndo('fxs'); cur().fxSpeed = +e.target.value; save(); };
+  $('txt').oninput = e => { pushUndo('txt'); cur().txt = e.target.value; render(); save(); };
+  $('font').onchange = e => { pushUndo(uniq()); cur().font = e.target.value; render(); save(); };
+  $('tsize').oninput = e => { pushUndo('tsize'); cur().tsize = +e.target.value; render(); save(); };
+  $('tcolor').oninput = e => { pushUndo('tcolor'); cur().tcolor = e.target.value; render(); save(); };
+  $('tglow').onchange = e => { pushUndo(uniq()); cur().tglow = e.target.checked; render(); save(); };
+  $('tbold').onchange = e => { pushUndo(uniq()); cur().tbold = e.target.checked; render(); save(); };
+  $('tanim').onchange = e => { pushUndo(uniq()); cur().tanim = e.target.value; render(); save(); };
+  $('reset').onclick = () => { pushUndo(uniq()); setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
+  $('undo').onclick = undo;
+  $('redo').onclick = redo;
 
   // Halloween-Vorlagen
   const PRESETS = [
@@ -639,11 +851,102 @@
   ];
   PRESETS.forEach(p => {
     const b = document.createElement('button'); b.textContent = p.name;
-    b.onclick = () => { if (state.selMask !== null) state.selMask = null; Object.assign(cur(), p.set); render(); save(); };
+    b.onclick = () => { pushUndo(uniq()); if (state.selMask !== null) state.selMask = null; Object.assign(cur(), p.set); render(); save(); };
     $('presets').appendChild(b);
   });
 
-  $('reset').onclick = () => { setPts(state.selMask !== null ? defaultMaskPts() : defaultPts()); render(); save(); };
+  // ---------- Projekte (lokal) ----------
+  let statusT = 0;
+  function setStatus(msg) { $('status').textContent = msg; clearTimeout(statusT); statusT = setTimeout(() => { $('status').textContent = ''; }, 7000); }
+  const getProjects = () => { try { return JSON.parse(localStorage.getItem(PROJ) || '{}'); } catch (e) { return {}; } };
+  const putProjects = p => { try { localStorage.setItem(PROJ, JSON.stringify(p)); return true; } catch (e) { return false; } };
+
+  function drawProjects() {
+    const box = $('plist'); box.replaceChildren();
+    const ps = getProjects(), names = Object.keys(ps).sort((a, b) => ps[b].savedAt - ps[a].savedAt);
+    if (!names.length) { const h = document.createElement('div'); h.className = 'hint'; h.textContent = 'Noch keine Projekte gespeichert.'; box.appendChild(h); return; }
+    names.forEach(n => {
+      const d = document.createElement('div'); d.className = 'proj';
+      const t = document.createElement('div'); t.className = 'n'; t.textContent = n;
+      const sm = document.createElement('small'); sm.textContent = new Date(ps[n].savedAt).toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' });
+      t.appendChild(sm);
+      const lo = document.createElement('button'); lo.textContent = 'Laden'; lo.onclick = () => loadProject(n);
+      const de = document.createElement('button'); de.textContent = '✕'; de.className = 'danger'; de.title = 'Löschen'; de.onclick = () => deleteProject(n);
+      d.append(t, lo, de); box.appendChild(d);
+    });
+  }
+  async function saveProject() {
+    const name = $('pn').value.trim();
+    if (!name) { setStatus('Bitte zuerst einen Projektnamen eingeben.'); $('pn').focus(); return; }
+    const ps = getProjects();
+    if (ps[name] && name !== state.projectName && !confirm(`„${name}“ existiert bereits. Überschreiben?`)) return;
+    ps[name] = { data: serialize(), savedAt: Date.now() };
+    if (!putProjects(ps)) { setStatus('Speichern fehlgeschlagen (Speicher voll?).'); return; }
+    for (const s of state.surfaces) {
+      if (s.type === 'none') continue;
+      const blob = await idbGet('work:' + s.id);
+      if (blob) await idbPut(`p:${name}:${s.id}`, blob);
+    }
+    state.projectName = name; save(); syncPanel(); drawProjects();
+    setStatus(`Projekt „${name}“ gespeichert.`);
+  }
+  async function loadProject(name) {
+    const p = getProjects()[name]; if (!p) return;
+    pushUndo(uniq());
+    clearEls(); applyData(p.data); state.projectName = name;
+    render(); save();
+    let missing = 0;
+    for (const s of state.surfaces) {
+      if (!s.fileName || !s.mtype || s.mtype === 'none') continue;
+      const blob = await idbGet(`p:${name}:${s.id}`);
+      if (!blob) { missing++; continue; }
+      await idbPut('work:' + s.id, blob);
+      s.url = URL.createObjectURL(blob); s.type = s.mtype; attachMedia(s);
+    }
+    render(); save();
+    setStatus(missing ? `Projekt „${name}“ geladen, ${missing} Datei(en) bitte neu wählen.` : `Projekt „${name}“ geladen.`);
+  }
+  async function deleteProject(name) {
+    if (!confirm(`Projekt „${name}“ löschen?`)) return;
+    const ps = getProjects(), p = ps[name];
+    if (p) for (const s of p.data.surfaces) await idbDel(`p:${name}:${s.id}`);
+    delete ps[name]; putProjects(ps);
+    if (state.projectName === name) { state.projectName = ''; save(); }
+    drawProjects(); syncPanel(); setStatus(`Projekt „${name}“ gelöscht.`);
+  }
+  function newProject() {
+    if (!confirm('Neues leeres Projekt starten? Nicht gespeicherte Änderungen lassen sich mit „Zurück“ wiederherstellen.')) return;
+    pushUndo(uniq());
+    clearEls(); state.surfaces = [newSurface()]; state.masks = []; state.maskSoft = 0; state.sel = 0; state.selMask = null; state.selPt = null; state.projectName = '';
+    render(); save(); setStatus('Neues Projekt gestartet.');
+  }
+  $('psave').onclick = saveProject;
+  $('pnew').onclick = newProject;
+  $('pexport').onclick = () => {
+    const name = ($('pn').value.trim() || state.projectName || 'fenster-projekt').replace(/[^\w\-äöüÄÖÜ ]+/g, '_');
+    const blob = new Blob([JSON.stringify({ app: 'fenster-mapper', version: 1, project: serialize() }, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    setStatus('Projektdatei gespeichert (Downloads-Ordner).');
+  };
+  $('pimport').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const j = JSON.parse(r.result), data = j.project || j;
+        if (!data.surfaces) throw new Error('kein Projekt');
+        pushUndo(uniq());
+        clearEls(); applyData(data);
+        state.projectName = f.name.replace(/\.json$/i, '');
+        render(); save();
+        const names = state.surfaces.filter(s => s.fileName).map(s => s.fileName);
+        setStatus(names.length ? 'Projekt geöffnet. Bitte Medien neu wählen: ' + names.join(', ') : 'Projekt geöffnet.');
+      } catch (err) { setStatus('Diese Datei ist kein gültiges Projekt.'); }
+    };
+    r.readAsText(f); e.target.value = '';
+  });
+
   function togglePlay() {
     const o = els.get(cur().id);
     if (o && o.media && o.media.tagName === 'VIDEO') o.media.paused ? o.media.play() : o.media.pause();
@@ -670,8 +973,12 @@
 
   window.addEventListener('keydown', e => {
     const t = e.target;
-    if ((t.tagName === 'INPUT' && t.type !== 'range' && t.type !== 'checkbox' && t.type !== 'color') || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
+    const typing = (t.tagName === 'INPUT' && t.type !== 'range' && t.type !== 'checkbox' && t.type !== 'color') || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA';
+    if (typing) return;
     const k = e.key;
+    if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'Z')) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (k === 'y' || k === 'Y')) { e.preventDefault(); redo(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (k === 'f' || k === 'F') { toggleOutput(); return; }
     if (k === 'h' || k === 'H') { setOutput(!document.body.classList.contains('output')); return; }
     if (k === 'g' || k === 'G') { toggleGrid(); return; }
@@ -680,8 +987,10 @@
     const d = { ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step] }[k];
     if (d) {
       e.preventDefault();
+      pushUndo('arrow');
       const pts = getPts().map(p => p.slice());
       if (state.selPt === null) setPts(pts.map(p => [p[0] + d[0], p[1] + d[1]]));
+      else if (state.selPt >= 10) setPts(moveEdge(pts, state.selPt - 10, d[0], d[1]));
       else { pts[state.selPt] = [pts[state.selPt][0] + d[0], pts[state.selPt][1] + d[1]]; setPts(pts); }
       render(); save();
     }
@@ -689,7 +998,7 @@
   window.addEventListener('resize', render);
 
   // ---------- Start ----------
-  load(); render();
+  load(); render(); drawProjects(); updateUndoButtons();
 })();
 </script>
 </body>
